@@ -11,6 +11,7 @@ import { useTunnel } from './hooks/useTunnel'
 import { localizeBackendMessage } from './i18n'
 
 type View = 'main' | 'settings' | 'about'
+type AvailableUpdate = { version: string }
 
 export default function App() {
   const controls = useTunnel()
@@ -20,6 +21,11 @@ export default function App() {
   const [view, setView] = useState<View>('main')
   const [aboutReturn, setAboutReturn] = useState<View>('main')
   const [linkError, setLinkError] = useState<string | null>(null)
+  const [updateVersion, setUpdateVersion] = useState<string | null>(null)
+  const [updateBusy, setUpdateBusy] = useState<
+    'checking' | 'installing' | null
+  >(null)
+  const [updateMessage, setUpdateMessage] = useState<string | null>(null)
   const content = useRef<HTMLElement>(null)
   const settingsButton = useRef<HTMLButtonElement>(null)
   const backButton = useRef<HTMLButtonElement>(null)
@@ -29,6 +35,46 @@ export default function App() {
     settings: 0,
     about: 0,
   })
+
+  useEffect(() => {
+    let active = true
+    void invoke<AvailableUpdate | null>('check_for_update')
+      .then((update) => {
+        if (active) setUpdateVersion(update?.version ?? null)
+      })
+      .catch(() => {
+        // A missing release or offline launch should not interrupt the tunnel UI.
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  async function checkUpdates() {
+    setUpdateBusy('checking')
+    setUpdateMessage(null)
+    try {
+      const update = await invoke<AvailableUpdate | null>('check_for_update')
+      setUpdateVersion(update?.version ?? null)
+      if (!update) setUpdateMessage(t('upToDate'))
+    } catch {
+      setUpdateMessage(t('updateCheckFailed'))
+    } finally {
+      setUpdateBusy(null)
+    }
+  }
+
+  async function installUpdate() {
+    setUpdateBusy('installing')
+    setUpdateMessage(null)
+    try {
+      await invoke('install_update')
+    } catch {
+      setUpdateMessage(t('updateInstallFailed'))
+    } finally {
+      setUpdateBusy(null)
+    }
+  }
 
   useEffect(() => {
     if (content.current)
@@ -231,6 +277,11 @@ export default function App() {
           <>
             <About
               t={t}
+              updateVersion={updateVersion}
+              updateBusy={updateBusy}
+              updateMessage={updateMessage}
+              onCheckUpdates={() => void checkUpdates()}
+              onInstallUpdate={() => void installUpdate()}
               onProjectLink={() => {
                 void invoke('open_project_page').catch((cause) =>
                   setLinkError(String(cause)),

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Warply",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "app.warply.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -28,10 +28,23 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": ["icons/icon.png", "icons/icon.ico"],
     "windows": {
       "nsis": {
         "installMode": "perMachine"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhCOEEyMzk1MjhCQjdDOTAKUldTUWZMc29sU09LaTNvQWdKMEVYbm45Y0dsZmVRY0R4UmQrMUNnbG5CSXBONWJuRVV4VG5CbmUK",
+      "requireSignedVersion": true,
+      "endpoints": [
+        "https://github.com/rookeudev/warply/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

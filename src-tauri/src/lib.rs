@@ -13,6 +13,7 @@ mod setup;
 mod storage;
 mod system_events;
 mod tunnel;
+mod updater;
 mod warp_api;
 
 use tauri::Manager;
@@ -40,6 +41,7 @@ pub fn run() {
         }
     };
     let result = tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(setup::AppState::default())
         .setup(|app| {
             let handle = app.handle().clone();
@@ -65,6 +67,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             appearance::set_window_appearance,
             appearance::open_project_page,
+            updater::check_for_update,
+            updater::install_update,
             commands::tunnel_snapshot,
             commands::import_config,
             commands::connect_tunnel,

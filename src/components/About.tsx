@@ -4,9 +4,25 @@ import type { Translator } from '../i18n'
 import SettingRow from './SettingRow'
 import SettingsList from './SettingsList'
 
-type Props = { t: Translator; onProjectLink: () => void }
+type Props = {
+  t: Translator
+  onProjectLink: () => void
+  updateVersion: string | null
+  updateBusy: 'checking' | 'installing' | null
+  updateMessage: string | null
+  onCheckUpdates: () => void
+  onInstallUpdate: () => void
+}
 
-export default function About({ t, onProjectLink }: Props) {
+export default function About({
+  t,
+  onProjectLink,
+  updateVersion,
+  updateBusy,
+  updateMessage,
+  onCheckUpdates,
+  onInstallUpdate,
+}: Props) {
   return (
     <div className="about-content">
       <p className="about-intro">{t('notesIntro')}</p>
@@ -14,8 +30,42 @@ export default function About({ t, onProjectLink }: Props) {
         <SettingRow label={t('version')}>
           <span className="setting-value">{version}</span>
         </SettingRow>
+        {updateVersion ? (
+          <button
+            type="button"
+            className="action-row"
+            disabled={!!updateBusy}
+            onClick={onInstallUpdate}
+          >
+            <span>
+              {t('updateAvailable')} {updateVersion}
+            </span>
+            <span className="inline-control">
+              {updateBusy === 'installing'
+                ? t('installingUpdate')
+                : t('installUpdate')}
+            </span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="action-row"
+            disabled={!!updateBusy}
+            onClick={onCheckUpdates}
+          >
+            <span>{t('checkForUpdates')}</span>
+            <span className="inline-control">
+              {updateBusy === 'checking' ? t('checkingUpdates') : ''}
+            </span>
+          </button>
+        )}
+        {updateMessage && (
+          <p className="setting-description" role="status">
+            {updateMessage}
+          </p>
+        )}
         <SettingRow label={t('license')}>
-          <span className="setting-value">MIT</span>
+          <span className="setting-value">Warply Source-Available</span>
         </SettingRow>
         <button type="button" className="action-row" onClick={onProjectLink}>
           <span>{t('sourceCode')}</span>
