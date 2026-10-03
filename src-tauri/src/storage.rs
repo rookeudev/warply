@@ -44,8 +44,17 @@ pub struct SecureProfileStore;
 impl ProfileStore for SecureProfileStore {
     fn load(&self) -> Result<Option<String>, String> {
         let path = config_path()?;
-        match File::open(&path) {
+        reject_links(&path)?;
+        let mut options = OpenOptions::new();
+        options.read(true);
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            options.share_mode(1).custom_flags(0x00200000);
+        }
+        match options.open(&path) {
             Ok(file) => {
+                ensure_regular_file(&file)?;
                 restrict_acl(&path, false)?;
                 read_small_file(file).map(Some)
             }
@@ -62,6 +71,41 @@ impl ProfileStore for SecureProfileStore {
 }
 
 pub fn data_folder() -> Result<PathBuf, String> {
+    #[cfg(target_os = "windows")]
+    let root = {
+        use std::os::windows::ffi::OsStringExt;
+        use windows_sys::Win32::{
+            System::Com::CoTaskMemFree,
+            UI::Shell::{FOLDERID_LocalAppData, SHGetKnownFolderPath},
+        };
+        let mut pointer = std::ptr::null_mut();
+        if unsafe {
+            SHGetKnownFolderPath(
+                &FOLDERID_LocalAppData,
+                0,
+                std::ptr::null_mut(),
+                &mut pointer,
+            )
+        } < 0
+            || pointer.is_null()
+        {
+            return Err("Windows could not locate your app data folder.".into());
+        }
+        let mut length = 0;
+        unsafe {
+            while length < 32768 && *pointer.add(length) != 0 {
+                length += 1;
+            }
+            if length == 32768 {
+                CoTaskMemFree(pointer.cast());
+                return Err("Windows returned an invalid app data path.".into());
+            }
+            let path = std::ffi::OsString::from_wide(std::slice::from_raw_parts(pointer, length));
+            CoTaskMemFree(pointer.cast());
+            path
+        }
+    };
+    #[cfg(not(target_os = "windows"))]
     let root = std::env::var_os("LOCALAPPDATA")
         .ok_or_else(|| "Windows could not locate your app data folder.".to_string())?;
     Ok(PathBuf::from(root).join("Warply"))
@@ -97,15 +141,54 @@ pub fn save_settings(settings: &Settings) -> Result<(), String> {
     secure_write(&data_folder()?.join("settings.json"), &contents)
 }
 
-pub fn delete_profile() -> Result<(), String> {
-    match fs::remove_file(config_path()?) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(_) => Err("Could not remove the saved config.".into()),
+pub fn reject_links(path: &Path) -> Result<(), String> {
+    if !path.is_absolute() {
+        return Err("Use an absolute file path.".into());
     }
+    for component in path.ancestors() {
+        match fs::symlink_metadata(component) {
+            Ok(metadata) => {
+                if metadata.file_type().is_symlink() {
+                    return Err(
+                        "Linked files or folders are not supported for sensitive data.".into(),
+                    );
+                }
+                #[cfg(target_os = "windows")]
+                {
+                    use std::os::windows::fs::MetadataExt;
+                    if metadata.file_attributes() & 0x400 != 0 {
+                        return Err(
+                            "Linked files or folders are not supported for sensitive data.".into(),
+                        );
+                    }
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return Err("Could not inspect the file path safely.".into()),
+        }
+    }
+    Ok(())
+}
+
+pub fn ensure_regular_file(file: &File) -> Result<(), String> {
+    let metadata = file
+        .metadata()
+        .map_err(|_| "Could not inspect the file safely.".to_string())?;
+    if !metadata.is_file() {
+        return Err("Choose a regular file.".into());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::fs::MetadataExt;
+        if metadata.file_attributes() & 0x400 != 0 {
+            return Err("Linked files are not supported for sensitive data.".into());
+        }
+    }
+    Ok(())
 }
 
 pub fn secure_folder(folder: &Path) -> Result<(), String> {
+    reject_links(folder)?;
     fs::create_dir_all(folder).map_err(|_| "Could not create Warply's data folder.".to_string())?;
     let metadata = fs::symlink_metadata(folder)
         .map_err(|_| "Could not inspect Warply's data folder.".to_string())?;
@@ -127,10 +210,17 @@ fn secure_write(path: &Path, contents: &[u8]) -> Result<(), String> {
         .parent()
         .ok_or_else(|| "Invalid app data path.".to_string())?;
     secure_folder(folder)?;
-    let temporary = path.with_extension("pending");
-    if temporary.exists() {
-        fs::remove_file(&temporary).map_err(|_| "Could not clear a previous save.".to_string())?;
-    }
+    reject_links(path)?;
+    static SAVE_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let id = SAVE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| "Could not prepare a safe save.".to_string())?
+        .as_nanos();
+    let temporary = folder.join(format!(
+        ".warply-{}-{timestamp}-{id}.pending",
+        std::process::id()
+    ));
     let result = (|| {
         let mut file = OpenOptions::new()
             .write(true)
@@ -224,6 +314,7 @@ mod tests {
         secure_write(&path, b"second").expect("replace");
         assert_eq!(fs::read_to_string(&path).expect("read"), "second");
         assert!(!path.with_extension("pending").exists());
+        assert_eq!(fs::read_dir(&folder).expect("folder contents").count(), 1);
         fs::remove_file(path).expect("remove file");
         fs::remove_dir(folder).expect("remove folder");
     }

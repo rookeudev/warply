@@ -48,7 +48,7 @@ pub fn apply(contents: &str, settings: &Settings) -> Result<String, String> {
     config::validate_import(contents).map_err(|error| error.to_string())?;
     let dns = validate(settings)?;
     let mut section = "";
-    let mut output = String::new();
+    let mut output = zeroize::Zeroizing::new(String::with_capacity(contents.len() + 1024));
     let mut dns_written = false;
     for raw in contents.lines() {
         let line = raw.trim();
@@ -78,7 +78,7 @@ pub fn apply(contents: &str, settings: &Settings) -> Result<String, String> {
         }
     }
     config::validate_import(&output).map_err(|error| error.to_string())?;
-    Ok(output)
+    Ok(std::mem::take(&mut *output))
 }
 
 #[cfg(test)]

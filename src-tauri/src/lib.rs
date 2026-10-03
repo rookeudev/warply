@@ -4,6 +4,7 @@ mod background;
 mod commands;
 mod config;
 mod elevation;
+mod health;
 mod import_dialog;
 mod installer;
 mod instance;
@@ -41,6 +42,21 @@ pub fn run() {
         }
     };
     let result = tauri::Builder::default()
+        .plugin(
+            tauri::plugin::Builder::<tauri::Wry>::new("navigation-guard")
+                .on_navigation(|_, url| {
+                    let local = (url.scheme() == "tauri" && url.host_str() == Some("localhost"))
+                        || (url.scheme() == "http"
+                            && url.host_str() == Some("tauri.localhost")
+                            && url.port().is_none());
+                    local
+                        || (cfg!(debug_assertions)
+                            && url.scheme() == "http"
+                            && url.host_str() == Some("localhost")
+                            && url.port() == Some(1420))
+                })
+                .build(),
+        )
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(setup::AppState::default())
         .setup(|app| {
@@ -53,6 +69,7 @@ pub fn run() {
                 background::show(&handle);
             }
             background::start_monitor(handle.clone());
+            health::start_monitor(handle.clone());
             tauri::async_runtime::spawn(async move {
                 commands::initialize(handle.state::<setup::AppState>().inner()).await;
                 let state = handle.state::<setup::AppState>();
@@ -70,6 +87,7 @@ pub fn run() {
             updater::check_for_update,
             updater::install_update,
             commands::tunnel_snapshot,
+            commands::recheck_connection,
             commands::import_config,
             commands::connect_tunnel,
             commands::disconnect_tunnel,

@@ -105,49 +105,88 @@ pub async fn register(public_key: &str) -> Result<TunnelDetails, ApiError> {
         tunnel_type: "wireguard",
     };
 
-    let registration: Registration = client
-        .post(format!("{BASE_URL}/{API_VERSION}/reg"))
-        .header("CF-Client-Version", CLIENT_VERSION)
-        .header(header::CONTENT_TYPE, "application/json; charset=UTF-8")
-        .header(header::CONNECTION, "Keep-Alive")
-        .json(&payload)
-        .send()
-        .await
-        .map_err(|_| ApiError::Network)
-        .and_then(check_response)?
-        .json()
-        .await
-        .map_err(|_| ApiError::Changed)?;
+    let registration = read_json::<Registration>(
+        client
+            .post(format!("{BASE_URL}/{API_VERSION}/reg"))
+            .header("CF-Client-Version", CLIENT_VERSION)
+            .header(header::CONTENT_TYPE, "application/json; charset=UTF-8")
+            .header(header::CONNECTION, "Keep-Alive")
+            .json(&payload)
+            .send()
+            .await
+            .map_err(|_| ApiError::Network)
+            .and_then(check_response)?,
+    )
+    .await?;
 
-    if registration.id.is_empty() || registration.token.is_empty() {
+    if registration.id.is_empty()
+        || registration.id.len() > 64
+        || !registration
+            .id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        || registration.token.is_empty()
+        || registration.token.len() > 4096
+        || registration.token.bytes().any(|b| b.is_ascii_control())
+    {
         return Err(ApiError::Changed);
     }
 
     // wgcf performs this authenticated request after registration to obtain
     // the current interface addresses and WireGuard peer.
-    let device: Device = client
-        .get(format!("{BASE_URL}/{API_VERSION}/reg/{}", registration.id))
-        .header("CF-Client-Version", CLIENT_VERSION)
-        .header(
-            header::AUTHORIZATION,
-            format!("Bearer {}", registration.token),
-        )
-        .header(header::CONNECTION, "Keep-Alive")
-        .send()
-        .await
-        .map_err(|_| ApiError::Network)
-        .and_then(check_response)?
-        .json()
-        .await
-        .map_err(|_| ApiError::Changed)?;
+    let device = read_json::<Device>(
+        client
+            .get(format!("{BASE_URL}/{API_VERSION}/reg/{}", registration.id))
+            .header("CF-Client-Version", CLIENT_VERSION)
+            .header(
+                header::AUTHORIZATION,
+                format!("Bearer {}", registration.token),
+            )
+            .header(header::CONNECTION, "Keep-Alive")
+            .send()
+            .await
+            .map_err(|_| ApiError::Network)
+            .and_then(check_response)?,
+    )
+    .await?;
 
     let config = device.config.ok_or(ApiError::Changed)?;
+    if config.peers.len() != 1 {
+        return Err(ApiError::Changed);
+    }
     let peer = config.peers.into_iter().next().ok_or(ApiError::Changed)?;
     Ok(TunnelDetails {
         ipv4: config.interface.addresses.v4,
         ipv6: config.interface.addresses.v6,
         peer_public_key: peer.public_key,
     })
+}
+
+impl Drop for Registration {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        self.token.zeroize();
+    }
+}
+
+async fn read_json<T: serde::de::DeserializeOwned>(
+    mut response: reqwest::Response,
+) -> Result<T, ApiError> {
+    const LIMIT: usize = 65_536;
+    if response
+        .content_length()
+        .is_some_and(|size| size > LIMIT as u64)
+    {
+        return Err(ApiError::Changed);
+    }
+    let mut bytes = zeroize::Zeroizing::new(Vec::new());
+    while let Some(chunk) = response.chunk().await.map_err(|_| ApiError::Network)? {
+        if bytes.len() + chunk.len() > LIMIT {
+            return Err(ApiError::Changed);
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    serde_json::from_slice(&bytes).map_err(|_| ApiError::Changed)
 }
 
 fn check_response(response: reqwest::Response) -> Result<reqwest::Response, ApiError> {

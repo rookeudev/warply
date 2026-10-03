@@ -15,6 +15,7 @@ use crate::{
 #[derive(Serialize)]
 pub struct TunnelSnapshot {
     status: TunnelStatus,
+    health: crate::health::HealthView,
     has_config: bool,
     wireguard_installed: bool,
     setup: SetupStatus,
@@ -38,6 +39,7 @@ async fn snapshot(state: &AppState) -> Result<TunnelSnapshot, String> {
     .map_err(|_| "Could not check the tunnel status.".to_string())??;
     let view = state.view.lock().await;
     Ok(TunnelSnapshot {
+        health: state.health.view(status).await,
         status: if view.auto_connecting {
             TunnelStatus::Connecting
         } else {
@@ -51,6 +53,12 @@ async fn snapshot(state: &AppState) -> Result<TunnelSnapshot, String> {
         settings: view.settings.clone(),
         poll_after_ms: 3000,
     })
+}
+
+#[tauri::command]
+pub async fn recheck_connection(state: State<'_, AppState>) -> Result<TunnelSnapshot, String> {
+    state.health.request_check().await;
+    snapshot(&state).await
 }
 
 #[tauri::command]
@@ -197,13 +205,14 @@ pub async fn check_wireguard(state: State<'_, AppState>) -> Result<TunnelSnapsho
 
 pub(crate) async fn connect() -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(|| {
-        let contents = SecureProfileStore
-            .load()?
-            .ok_or_else(|| "Automatic setup has not finished. Select Try again.".to_string())?;
+        let contents =
+            zeroize::Zeroizing::new(SecureProfileStore.load()?.ok_or_else(|| {
+                "Automatic setup has not finished. Select Try again.".to_string()
+            })?);
         config::validate_import(&contents).map_err(|error| error.to_string())?;
         let settings = storage::load_settings()?;
-        let updated = crate::network::apply(&contents, &settings)?;
-        if updated != contents {
+        let updated = zeroize::Zeroizing::new(crate::network::apply(&contents, &settings)?);
+        if *updated != *contents {
             SecureProfileStore.save(&updated)?;
         }
         tunnel::backend()
@@ -230,6 +239,7 @@ pub async fn connect_tunnel(state: State<'_, AppState>) -> Result<TunnelSnapshot
         view.auto_connecting = true;
         view.message = None;
     }
+    state.health.invalidate().await;
     let result = connect().await;
     state.view.lock().await.auto_connecting = false;
     if let Err(message) = result {
@@ -243,10 +253,15 @@ pub async fn connect_tunnel(state: State<'_, AppState>) -> Result<TunnelSnapshot
 
 #[tauri::command]
 pub async fn disconnect_tunnel(state: State<'_, AppState>) -> Result<TunnelSnapshot, String> {
+    state.health.invalidate().await;
     state.desired_connected.store(false, Ordering::SeqCst);
     // Cancel recovery intent immediately, then wait for an in-flight recovery
     // to finish so the requested disconnect always removes its service too.
     let _operation = state.operation.lock().await;
+    // An older connect/setup operation may have restored its intent while we
+    // waited. Reapply OFF after taking the lock so recovery cannot undo it.
+    state.desired_connected.store(false, Ordering::SeqCst);
+    state.health.invalidate().await;
     tauri::async_runtime::spawn_blocking(|| {
         tunnel::backend()
             .disconnect()
@@ -332,10 +347,12 @@ pub async fn set_network_settings(
     let saved_settings = settings.clone();
     tauri::async_runtime::spawn_blocking(move || {
         require_disconnected()?;
-        let contents = SecureProfileStore
-            .load()?
-            .ok_or_else(|| "There is no saved config to change.".to_string())?;
-        let updated = crate::network::apply(&contents, &saved_settings)?;
+        let contents = zeroize::Zeroizing::new(
+            SecureProfileStore
+                .load()?
+                .ok_or_else(|| "There is no saved config to change.".to_string())?,
+        );
+        let updated = zeroize::Zeroizing::new(crate::network::apply(&contents, &saved_settings)?);
         SecureProfileStore.save(&updated)?;
         if let Err(error) = storage::save_settings(&saved_settings) {
             let _ = SecureProfileStore.save(&contents);
@@ -371,9 +388,11 @@ pub async fn import_config(state: State<'_, AppState>) -> Result<Option<TunnelSn
         let Some(source) = import_dialog::choose_config()? else {
             return Ok(false);
         };
+        storage::reject_links(&source)?;
         let file = std::fs::File::open(source)
             .map_err(|_| "Could not read that .conf file.".to_string())?;
-        let contents = storage::read_small_file(file)?;
+        storage::ensure_regular_file(&file)?;
+        let contents = zeroize::Zeroizing::new(storage::read_small_file(file)?);
         config::validate_import(contents.trim_start_matches('\u{feff}'))
             .map_err(|error| error.to_string())?;
         SecureProfileStore.save(contents.trim_start_matches('\u{feff}'))?;
@@ -394,16 +413,28 @@ pub async fn reset_account(state: State<'_, AppState>) -> Result<TunnelSnapshot,
         .operation
         .try_lock()
         .map_err(|_| "Another operation is in progress.".to_string())?;
-    tauri::async_runtime::spawn_blocking(|| {
+    let consent = tauri::async_runtime::spawn_blocking(|| {
         require_disconnected()?;
-        storage::delete_profile()
+        import_dialog::confirm("Create a new WARP account? The current configuration will be replaced only after the new account is ready.")
     })
     .await
     .map_err(|_| "Could not reset the WARP account.".to_string())??;
-    if let Err(message) = create_or_load_profile(&state).await {
-        state
-            .update(SetupStatus::RegistrationError, Some(message))
-            .await;
+    if !consent {
+        return snapshot(&state).await;
+    }
+    let previous = state.view.lock().await.clone();
+    state.update(SetupStatus::CreatingAccount, None).await;
+    state.health.invalidate().await;
+    if let Err(message) = setup::replace_profile(&SecureProfileStore, |key| async move {
+        warp_api::register(&key)
+            .await
+            .map_err(|error| error.to_string())
+    })
+    .await
+    {
+        // A failed registration never deletes the previous working profile.
+        state.update(previous.status, Some(message.clone())).await;
+        return Err(message);
     } else {
         finish_installation(&state).await;
     }
@@ -420,17 +451,27 @@ pub async fn export_config(state: State<'_, AppState>) -> Result<bool, String> {
         let Some(path) = import_dialog::choose_export()? else {
             return Ok(false);
         };
-        let contents = SecureProfileStore
-            .load()?
-            .ok_or_else(|| "There is no saved config to export.".to_string())?;
+        let contents = zeroize::Zeroizing::new(
+            SecureProfileStore
+                .load()?
+                .ok_or_else(|| "There is no saved config to export.".to_string())?,
+        );
         // No key or config content is ever returned to the webview.
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
+        storage::reject_links(&path)?;
+        let mut options = OpenOptions::new();
+        options.write(true).create(true).truncate(false);
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            options.share_mode(0).custom_flags(0x00200000);
+        }
+        let mut file = options
             .open(&path)
             .map_err(|_| "Could not create the exported config.".to_string())?;
+        storage::ensure_regular_file(&file)?;
         storage::restrict_acl(&path, false)?;
+        file.set_len(0)
+            .map_err(|_| "Could not prepare the export file.".to_string())?;
         file.write_all(contents.as_bytes())
             .and_then(|_| file.sync_all())
             .map_err(|_| "Could not export the config.".to_string())?;

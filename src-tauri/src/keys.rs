@@ -2,7 +2,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use x25519_dalek::{PublicKey, StaticSecret};
 
 pub struct KeyPair {
-    pub private_key: String,
+    pub private_key: zeroize::Zeroizing<String>,
     pub public_key: String,
 }
 
@@ -10,7 +10,7 @@ pub fn generate() -> KeyPair {
     let secret = StaticSecret::random();
     let public = PublicKey::from(&secret);
     KeyPair {
-        private_key: STANDARD.encode(secret.to_bytes()),
+        private_key: zeroize::Zeroizing::new(STANDARD.encode(secret.as_bytes())),
         public_key: STANDARD.encode(public.as_bytes()),
     }
 }
@@ -23,7 +23,9 @@ mod tests {
     fn generates_wireguard_key_format() {
         let first = generate();
         let second = generate();
-        let private = STANDARD.decode(&first.private_key).expect("private base64");
+        let private = STANDARD
+            .decode(first.private_key.as_bytes())
+            .expect("private base64");
         let public = STANDARD.decode(&first.public_key).expect("public base64");
         assert_eq!(private.len(), 32);
         assert_eq!(public.len(), 32);

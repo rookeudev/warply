@@ -1,6 +1,7 @@
 import { Power } from 'lucide-react'
 
-export type PowerState = 'disconnected' | 'connecting' | 'connected' | 'error'
+export type PowerState =
+  'disconnected' | 'connecting' | 'connected' | 'unverified' | 'error'
 
 type Props = {
   state: PowerState

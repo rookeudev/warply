@@ -12,6 +12,11 @@ export type SetupStatus =
 
 export type TunnelSnapshot = {
   status: TunnelStatus
+  health: {
+    status: 'unknown' | 'checking' | 'verified' | 'not_warp' | 'unavailable'
+    duration_ms: number | null
+    checked_ago_secs: number | null
+  }
   has_config: boolean
   wireguard_installed: boolean
   setup: SetupStatus
@@ -124,7 +129,8 @@ export function useTunnel() {
 
   async function toggle() {
     if (!snapshot) return
-    const connected = snapshot.status === 'connected'
+    const connected =
+      snapshot.status === 'connected' || snapshot.status === 'connecting'
     await run(
       connected ? 'disconnect_tunnel' : 'connect_tunnel',
       connected ? 'disconnect' : 'connect',
@@ -135,12 +141,14 @@ export function useTunnel() {
     snapshot,
     busy,
     error: error ?? pollError,
+    stale: pollError !== null,
     notice,
     importConfig,
     exportConfig,
     toggle,
     retrySetup: () => run('retry_setup', 'setup'),
     checkWireGuard: () => run('check_wireguard', 'check'),
+    recheckConnection: () => run('recheck_connection', 'health'),
     resetAccount: () => run('reset_account', 'reset'),
     setAutoConnect: (enabled: boolean) =>
       run('set_auto_connect', 'settings', { enabled }),

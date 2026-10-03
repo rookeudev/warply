@@ -1,37 +1,37 @@
-# Security model — current audit
+# Security model — v0.3.0
 
-The requested security-hardening implementation is pending. This document records the current risks; it does not claim that the visual redesign solves them. The repository may be public. Source secrecy and obfuscation are not security controls.
+Warply has additional safeguards, but this is not a claim of complete security or a full independent audit. Source secrecy is not a security control.
 
-## Threat boundaries
+## Connection status
 
-Cloudflare API responses, imported configs, the webview and frontend state, environment variables, downloaded installers, and filesystem paths must be treated as untrusted. An administrator or compromised operating system can read or change application memory and tunnel settings. Warply cannot protect against that attacker.
+The WireGuard service state and the health result are separate fields. A running service alone never produces the green verified state in the UI or tray.
 
-The current app runs its webview and Rust backend elevated. This gives a webview compromise a larger impact than a separated, unprivileged UI and privileged helper. Existing frontend commands use a fixed command set and do not accept executable paths, but this is not process isolation.
+Every 30 seconds while the service runs, Rust checks `https://www.cloudflare.com/cdn-cgi/trace`. It validates the saved profile, confirms that the chosen source address is active on the `warply` adapter, and binds the HTTPS client to that address. The client has no proxy, no redirects, an eight-second request timeout, and a 4 KB response limit. Only an unambiguous `warp=on` or `warp=plus` response verifies WARP. Failed or changed responses remain unverified. No private key, public IP, or trace body is sent to the webview or logged.
 
-## Prioritized findings
+Results expire after 30 seconds. Disconnect, reconnect, and network recovery invalidate previous results. A revision check prevents a pending request from verifying a later tunnel session. A failed check does not automatically restart the tunnel: a verification endpoint failure is not proof that the tunnel failed.
 
-| Priority | File                                                               | Finding                                                                                                                                                                                                             |
-| -------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| High     | `src-tauri/src/storage.rs`                                         | Plaintext `warply.conf` remains in LocalAppData. ACLs include the current user. DPAPI and an Administrators/SYSTEM-only tunnel directory have not been implemented.                                                 |
-| High     | `src-tauri/src/keys.rs`, `config.rs`, `setup.rs`                   | Private keys and config text use ordinary strings. They are not guaranteed to be zeroized, and secret wrapper types are absent.                                                                                     |
-| High     | `src-tauri/src/lib.rs`, `elevation.rs`                             | The whole UI runs elevated. Development builds relaunch the current executable. A production release must enforce installation and execution from a protected Program Files location.                               |
-| High     | `src-tauri/src/tunnel.rs`, `installer.rs`, `storage.rs`            | Some paths derive from environment variables. Reparse-point, protected-path, and replacement-race checks need a consistent review for all elevated file and process operations.                                     |
-| High     | `.github/workflows/release.yml`                                    | Releases are unsigned and have no secret, dependency, or provenance gates. Action references are not pinned to immutable commit SHAs. This workflow is not ready for the requested signed-only distribution policy. |
-| Medium   | `src-tauri/src/config.rs`, `warp_api.rs`                           | Parsing rejects script hooks and validates keys/CIDRs, but several settings remain unchecked, duplicate/multiple-section semantics are weak, and API response sizes and fields need stricter bounds.                |
-| Medium   | `src-tauri/tauri.conf.json`, `capabilities/default.json`, `lib.rs` | Explicit navigation restrictions and release webview restrictions remain pending. A native mutex and existing-window focus check now enforce a single instance.                                                     |
-| Medium   | `src-tauri/Cargo.toml`, `vite.config.ts`                           | Release mitigations, binary inspection, and artifact secret scans are not configured.                                                                                                                               |
-| Low      | `.gitignore`                                                       | `.env`, key, and certificate patterns and CI secret scanning need to be added.                                                                                                                                      |
-| Low      | Network constants and release documentation                        | Outbound requests are spread across modules. The permitted endpoints and disconnect behavior should be documented centrally.                                                                                        |
+The probe prefers the profile's IPv4 address and can use IPv6 for an IPv6-only profile. It proves one HTTPS request through WARP, not every application's routing, all IPv6 routes, DNS leak prevention, or continuous connectivity. The UI displays the age of the last check. See [Cloudflare's trace documentation](https://developers.cloudflare.com/fundamentals/reference/cdn-cgi-endpoint/).
 
-## Existing protections and limits
+## Implemented protections
 
-- Private keys are generated locally. The registration request sends the public key; the webview receives status fields rather than config contents. Import and export use native dialogs. Export displays a private-key warning.
-- Sensitive registration requests use HTTPS, certificate validation, timeouts, and no redirects. No telemetry or crash uploader is implemented.
-- Script hooks and unknown config directives are rejected. This does not substitute for complete field and section validation.
-- The official MSI fallback checks Authenticode status and the exact WireGuard publisher, while locking the file against replacement until installation finishes. Installed WireGuard binaries are signature checked before tunnel commands.
-- These controls do not provide encrypted storage or prevent access to secrets by an administrator, malware in the elevated process, a debugger, or a compromised OS.
-- No custom kill switch, public-IP check, or updater is implemented. Scheduled autostart uses a per-user interactive logon task with highest privileges; only a canonical executable under the native Program Files directory can be registered. A protected installation and correct ACLs are still essential. Disconnect removes the WireGuard service and restores ordinary networking; traffic after disconnect is not protected by the tunnel.
+- Keys are generated locally; registration sends only the public key. Selected key, profile, and registration-token allocations are zeroized when released. This does not guarantee that every temporary or third-party copy is wiped.
+- Cloudflare registration uses HTTPS, certificate validation, no redirects, no proxy, timeouts, and bounded 64 KB response bodies. Registration IDs and tokens are checked before use in a URL or header. There is no telemetry, database, or application backend.
+- Imported profiles require one Interface and one Peer section, reject repeated fields and scripts, and validate keys, CIDRs, endpoint, DNS addresses, MTU, and numeric fields. This intentionally rejects multi-peer profiles and DNS search-domain entries.
+- Reset requires native confirmation. A new account is registered and a replacement config is built before the old profile is replaced. A registration failure preserves the previous profile.
+- Windows resolves LocalAppData through its known-folder API rather than an environment variable. Sensitive storage and export reject linked paths. Profile reads retain a file handle that denies writes/deletion; export retains an exclusive handle, checks the file type, and applies permissions before truncating or writing. Saves use a newly created temporary file and a final rename.
+- Private config contents stay in Rust. Export requires a native private-key warning. The webview gets only status and non-secret settings.
+- The webview is restricted to the app's local origin (the fixed Vite origin is allowed in debug builds). CSP blocks embedded frames, objects, form submissions, and remote frontend connections. Devtools are disabled.
+- Official WireGuard downloads and installed binaries are checked against the WireGuard publisher before execution. The installer fallback retains its replacement protection.
+- Updates use Tauri signatures, require a signed version, and ask for native confirmation. Release Actions are pinned to immutable commit SHAs; checkout credentials are not retained. Signing secrets stay outside Git. Windows Authenticode signing of Warply itself remains optional and is not configured.
 
-## Review checkpoints
+## Remaining boundaries
 
-The hardening brief requires implementation in order and review after security steps 2 and 5. Neither security checkpoint has been reached. The subsequent UI brief was initially handled as visual step 1. The user's follow-up “add it everything” authorized implementing the previously disabled DNS/endpoint and background controls too. Registration and WireGuard service operations are preserved; network overrides and a bounded reconnect supervisor now wrap those operations. The UI/background work does not complete the remaining security-hardening requirements.
+The UI and backend still run elevated in one process. The saved `warply.conf` is plaintext with restricted ACLs; DPAPI encryption and a separate privileged helper have not been implemented. Path checks reduce risk but do not establish a fully race-free privileged filesystem design. A local administrator, compromised OS, or malware in the elevated process can access secrets and control networking.
+
+Warply does not implement an additional custom kill switch. WireGuard for Windows has its own behavior for a single peer with `/0` routes; imported or custom configurations may differ. Normal disconnect removes the service and restores ordinary networking. Health checks are diagnostic, not a firewall guarantee.
+
+## Verification and manual tests
+
+Rust tests cover ambiguous trace responses, stale results, service/health separation, config injection and optional fields, source-address selection, failed reset preservation, secure-save replacement, installer checks, and existing setup/recovery behavior. Browser fixtures cover service-running/verified/unverified/disconnected states and menu navigation; they do not prove a live VPN session.
+
+On a Windows VM, check a real working tunnel, block WARP traffic while leaving the service running, restore access, block only the trace endpoint, switch networks, disconnect during a pending check, and inspect IPv4/IPv6/DNS routing separately. Verify that a failed check never shows green and that the user can still disconnect. Test linked file rejection and reset cancellation/registration failure without losing the old profile.

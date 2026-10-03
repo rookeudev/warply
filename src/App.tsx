@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Settings as SettingsIcon } from 'lucide-react'
 import { invoke } from '@tauri-apps/api/core'
 import logo from '../assets/warply-logo.png'
-import Settings from './components/Settings'
+import Settings, { type SettingsSection } from './components/Settings'
+import ConnectionDetails from './components/ConnectionDetails'
 import About from './components/About'
 import PowerButton, { type PowerState } from './components/PowerButton'
 import StatusBlock from './components/StatusBlock'
@@ -19,6 +20,8 @@ export default function App() {
   const { t } = appearance
   const { snapshot, busy, error, notice } = controls
   const [view, setView] = useState<View>('main')
+  const [settingsSection, setSettingsSection] =
+    useState<SettingsSection>('overview')
   const [aboutReturn, setAboutReturn] = useState<View>('main')
   const [linkError, setLinkError] = useState<string | null>(null)
   const [updateVersion, setUpdateVersion] = useState<string | null>(null)
@@ -68,7 +71,8 @@ export default function App() {
     setUpdateBusy('installing')
     setUpdateMessage(null)
     try {
-      await invoke('install_update')
+      const installed = await invoke<boolean>('install_update')
+      if (!installed) setUpdateMessage(t('updateCancelled'))
     } catch {
       setUpdateMessage(t('updateInstallFailed'))
     } finally {
@@ -78,7 +82,8 @@ export default function App() {
 
   useEffect(() => {
     if (content.current)
-      content.current.scrollTop = scrollPositions.current[view]
+      content.current.scrollTop =
+        view === 'settings' ? 0 : scrollPositions.current[view]
     if (view !== 'main') backButton.current?.focus()
     else if (previousView.current !== 'main') settingsButton.current?.focus()
     previousView.current = view
@@ -89,12 +94,14 @@ export default function App() {
       ) {
         event.preventDefault()
         scrollPositions.current[view] = content.current?.scrollTop ?? 0
-        setView(view === 'about' ? aboutReturn : 'main')
+        if (view === 'settings' && settingsSection !== 'overview')
+          setSettingsSection('overview')
+        else setView(view === 'about' ? aboutReturn : 'main')
       }
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [view, aboutReturn])
+  }, [view, aboutReturn, settingsSection])
 
   function navigate(next: View) {
     scrollPositions.current[view] = content.current?.scrollTop ?? 0
@@ -113,25 +120,47 @@ export default function App() {
     'installing_wireguard',
   ].includes(setup)
   const connected = snapshot?.status === 'connected'
+  const serviceActive = connected || snapshot?.status === 'connecting'
+  const verified =
+    connected && snapshot?.health?.status === 'verified' && !controls.stale
+  const verifying =
+    connected &&
+    (!snapshot?.health ||
+      ['unknown', 'checking'].includes(snapshot.health.status))
   const connecting = busy === 'connect' || snapshot?.status === 'connecting'
   const message = error ?? snapshot?.setup_message
   const failed =
     !!message || setup === 'registration_error' || snapshot?.status === 'error'
   const powerState: PowerState =
-    setupBusy || connecting
+    setupBusy || connecting || verifying
       ? 'connecting'
       : failed
         ? 'error'
-        : connected
+        : verified
           ? 'connected'
-          : 'disconnected'
+          : connected
+            ? 'unverified'
+            : 'disconnected'
   const canToggle =
     !!snapshot &&
     !busy &&
+    updateBusy !== 'installing' &&
     snapshot.wireguard_installed &&
-    (connected || (setup === 'ready' && snapshot.has_config && !connecting))
-  let title = connected ? t('connected') : t('disconnected')
-  let secondary = connected ? t('tunnelRunning') : t('ready')
+    (serviceActive || (setup === 'ready' && snapshot.has_config && !connecting))
+  let title = verified
+    ? t('warpVerified')
+    : verifying
+      ? t('checkingConnection')
+      : connected
+        ? t('connectionUnverified')
+        : t('disconnected')
+  let secondary = verified
+    ? t('verificationPassed')
+    : verifying
+      ? t('verificationPending')
+      : connected
+        ? t('verificationFailed')
+        : t('ready')
   if (setupBusy) {
     title = t('starting')
     secondary =
@@ -175,7 +204,10 @@ export default function App() {
               type="button"
               className="icon-button"
               aria-label={t('openSettings')}
-              onClick={() => navigate('settings')}
+              onClick={() => {
+                setSettingsSection('overview')
+                navigate('settings')
+              }}
             >
               <SettingsIcon size={20} strokeWidth={1.6} aria-hidden="true" />
             </button>
@@ -189,12 +221,28 @@ export default function App() {
                 className="icon-button"
                 aria-label={t('back')}
                 onClick={() =>
-                  navigate(view === 'about' ? aboutReturn : 'main')
+                  view === 'settings' && settingsSection !== 'overview'
+                    ? setSettingsSection('overview')
+                    : navigate(view === 'about' ? aboutReturn : 'main')
                 }
               >
                 <ArrowLeft size={20} strokeWidth={1.6} aria-hidden="true" />
               </button>
-              <h1>{view === 'settings' ? t('settings') : t('about')}</h1>
+              <h1>
+                {view === 'settings'
+                  ? t(
+                      settingsSection === 'overview'
+                        ? 'settings'
+                        : settingsSection === 'general'
+                          ? 'generalMenu'
+                          : settingsSection === 'network'
+                            ? 'networkMenu'
+                            : settingsSection === 'advanced'
+                              ? 'advancedMenu'
+                              : 'appearance',
+                    )
+                  : t('updatesAbout')}
+              </h1>
             </div>
             <img src={logo} className="brand-logo" alt="" />
           </>
@@ -209,9 +257,9 @@ export default function App() {
           <div className="connection-content">
             <PowerButton
               state={powerState}
-              pressed={connected}
+              pressed={serviceActive}
               disabled={!canToggle}
-              label={connected ? t('disconnect') : t('connect')}
+              label={serviceActive ? t('disconnect') : t('connect')}
               onClick={() => void controls.toggle()}
             />
             <StatusBlock
@@ -219,6 +267,25 @@ export default function App() {
               secondary={secondary}
               error={failed && !setupBusy && !connecting}
             />
+            {setup === 'ready' && (
+              <ConnectionDetails
+                snapshot={snapshot}
+                uncertain={controls.stale}
+                t={t}
+              />
+            )}
+            {setup === 'ready' && (
+              <button
+                type="button"
+                className="text-button connection-link"
+                onClick={() => {
+                  setSettingsSection('network')
+                  navigate('settings')
+                }}
+              >
+                {t('connectionDetailsLink')}
+              </button>
+            )}
             {setup === 'registration_error' && (
               <button
                 type="button"
@@ -259,7 +326,9 @@ export default function App() {
             <Settings
               controls={controls}
               appearance={appearance}
-              setupBusy={setupBusy}
+              setupBusy={setupBusy || updateBusy === 'installing'}
+              section={settingsSection}
+              onSection={setSettingsSection}
               onAbout={openAbout}
             />
             {message && (

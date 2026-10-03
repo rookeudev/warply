@@ -6,7 +6,7 @@
 
 <p align="center">
   Cloudflare WARP for Windows with one button.<br>
-  Click on, you're protected. Click off, you're back to normal.
+  Connect with one button. Check whether WARP access is working.
 </p>
 
 <p align="center">
@@ -31,11 +31,14 @@ Cloudflare WARP is a free service that encrypts your internet traffic. Setting i
 
 ## Features
 
-* **One button.** On and off, nothing else to set up.
-* **Automatic setup.** Creates a free WARP account on first launch. No sign-up, no files to import.
-* **Runs in the background.** Sits in the system tray and can start with Windows.
-* **Reconnects by itself** after sleep or a network change.
-* **Private.** No account with us, no tracking, no server. Your key stays on your PC.
+- **One button.** On and off, nothing else to set up.
+- **Automatic setup.** Creates a free WARP account on first launch. No sign-up, no files to import.
+- **Runs in the background.** Sits in the system tray and can start with Windows.
+- **Reconnects by itself** after sleep or a network change.
+- **Verified status.** A running WireGuard service and a successful WARP check are shown separately.
+- **Organized settings.** Startup, connection, appearance, account, and updates have their own sections.
+- **Signed updates.** Check for new releases and install them from the app.
+- **Private.** No account with us, no tracking, no server. Your key stays on your PC.
 
 ## Download
 
@@ -50,12 +53,13 @@ Works on Windows 10 and 11. Administrator rights are needed to create the networ
 1. On first launch, Warply creates a WireGuard key pair on your PC and registers a free WARP account with Cloudflare. Only the public key is sent.
 2. It builds a standard WireGuard configuration and stores it on your machine with restricted file permissions.
 3. The button starts or stops that tunnel through the official WireGuard service for Windows.
+4. Rust verifies an HTTPS request through the tunnel address every 30 seconds. A running service alone does not show a verified connection.
 
 ## What WARP does and doesn't do
 
-* It **encrypts your traffic** between your PC and Cloudflare. This helps on public Wi-Fi and hides your activity from your internet provider.
-* It does **not** let you pick a country. Websites see a Cloudflare address, and your location stays roughly the same.
-* It is **not** a replacement for Tor or a no-logs VPN, and it is not meant for bypassing geo-blocks.
+- It **encrypts your traffic** between your PC and Cloudflare. This helps on public Wi-Fi and hides your activity from your internet provider.
+- It does **not** let you pick a country. Websites see a Cloudflare address, and your location stays roughly the same.
+- It is **not** a replacement for Tor or a no-logs VPN, and it is not meant for bypassing geo-blocks.
 
 ## FAQ
 
@@ -83,17 +87,17 @@ git clone https://github.com/rookeudev/warply.git
 cd warply
 npm ci
 npm run tauri dev       # run in development
-npm run tauri build     # build the installer
+npm run tauri -- build --no-bundle # build the app executable
 ```
 
-Installers are created in `src-tauri/target/release/bundle/`.
+Release installers require updater signing. See [RELEASING.md](RELEASING.md). Installer bundles are created in `src-tauri/target/release/bundle/`.
 
 ## Good to know
 
-* Warply uses Cloudflare's unofficial registration API, which Cloudflare may change at any time.
-* The connection status shows whether the WireGuard service is running, not whether the internet is reachable.
-* Speed and availability of free WARP are controlled by Cloudflare.
-* Security details and remaining hardening work are in the [security notes](docs/security-model.md).
+- Warply uses Cloudflare's unofficial registration API, which Cloudflare may change at any time.
+- Connection status separates the service state from a recent WARP HTTPS check. It does not certify every application, IPv6 route, or DNS leak prevention.
+- Speed and availability of free WARP are controlled by Cloudflare.
+- Security details and remaining hardening work are in the [security notes](docs/security-model.md).
 
 ## Project policy
 

@@ -15,6 +15,8 @@
   --ring: #777777;
   --accent: #2d93e0;
   --error: #c42b1c;
+  --success: #107c10;
+  --warning: #9a6700;
   --radius: 6px;
   --space: 8px;
   --motion: 160ms ease;
@@ -33,6 +35,8 @@
   --hover: #303030;
   --ring: #a0a0a0;
   --error: #ff99a4;
+  --success: #73d373;
+  --warning: #edbf69;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -47,6 +51,8 @@
     --hover: #303030;
     --ring: #a0a0a0;
     --error: #ff99a4;
+    --success: #73d373;
+    --warning: #edbf69;
   }
 }
 
@@ -179,6 +185,7 @@ svg {
   padding-block: 8px;
 }
 .power-button {
+  transition: background-color var(--motion);
   position: relative;
   display: grid;
   place-items: center;
@@ -198,7 +205,110 @@ svg {
   opacity: 1;
 }
 .power-button--connected {
+  color: var(--success);
+}
+.power-button--unverified {
+  color: var(--warning);
+}
+.power-button--error {
+  color: var(--error);
+}
+.power-button--connecting {
   color: var(--accent);
+}
+
+.page-intro {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.settings-menu {
+  display: grid;
+  gap: 8px;
+}
+.menu-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--separator);
+  border-radius: 10px;
+  background: var(--control);
+  color: var(--text);
+  text-align: left;
+}
+.menu-card:hover {
+  background: var(--hover);
+  border-color: var(--control-border);
+}
+.menu-card > svg {
+  color: var(--muted);
+}
+.menu-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 36px;
+  color: var(--accent);
+}
+.connection-card {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--separator);
+  border-radius: 10px;
+  background: var(--control);
+  text-align: left;
+}
+.settings-content > .connection-card {
+  margin-bottom: 24px;
+}
+.connection-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.connection-card--verified .connection-card-heading,
+.verified-value {
+  color: var(--success);
+}
+.connection-facts {
+  margin: 0;
+  font-size: 12px;
+}
+.connection-facts > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 6px;
+}
+.connection-facts dt {
+  color: var(--muted);
+}
+.connection-facts dd {
+  margin: 0;
+  text-align: right;
+}
+.connection-card > .setting-description {
+  margin-top: 14px;
+}
+.check-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+.connection-link {
+  color: var(--muted);
+  font-size: 12px;
+}
+.reset-row .setting-label {
+  color: var(--error);
 }
 .power-ring {
   position: absolute;
@@ -525,6 +635,8 @@ svg {
     --ring: ButtonText;
     --accent: Highlight;
     --error: CanvasText;
+    --success: Highlight;
+    --warning: CanvasText;
   }
   .toggle[aria-checked='true'] {
     color: HighlightText;

@@ -28,9 +28,12 @@ pub async fn check_for_update(app: tauri::AppHandle) -> Result<Option<AvailableU
 }
 
 #[tauri::command]
-pub async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
+pub async fn install_update(app: tauri::AppHandle) -> Result<bool, String> {
     let state = app.state::<AppState>();
-    let _operation = state.operation.lock().await;
+    let _operation = state
+        .operation
+        .try_lock()
+        .map_err(|_| "Another operation is in progress.".to_string())?;
     let update = app
         .updater()
         .map_err(|_| "Could not prepare the update.".to_string())?
@@ -38,6 +41,11 @@ pub async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
         .await
         .map_err(|_| "Could not check the update. Try again later.".to_string())?
         .ok_or_else(|| "No newer version is available.".to_string())?;
+    let version = update.version.clone();
+    let consent = tauri::async_runtime::spawn_blocking(move || crate::import_dialog::confirm(&format!("Install Warply {version}? The tunnel will be disconnected after the update is downloaded and verified."))).await.map_err(|_| "Could not confirm the update.".to_string())??;
+    if !consent {
+        return Ok(false);
+    }
 
     let bytes = update.download(|_, _| {}, || {}).await.map_err(|_| {
         "The update could not be downloaded or verified. Try again later.".to_string()

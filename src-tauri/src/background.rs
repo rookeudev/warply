@@ -102,7 +102,10 @@ fn toggle(app: tauri::AppHandle) {
             return;
         }
         let status = tauri::async_runtime::spawn_blocking(|| tunnel::backend().status()).await;
-        let result = if matches!(status, Ok(Ok(TunnelStatus::Connected))) {
+        let result = if matches!(
+            status,
+            Ok(Ok(TunnelStatus::Connected | TunnelStatus::Connecting))
+        ) {
             commands::disconnect_tunnel(state.clone()).await
         } else {
             commands::connect_tunnel(state.clone()).await
@@ -189,6 +192,15 @@ pub async fn update_tray(app: &tauri::AppHandle) {
     let state = app.state::<AppState>();
     let view = state.view.lock().await.clone();
     let connected = matches!(status, Ok(Ok(TunnelStatus::Connected)));
+    let health = state
+        .health
+        .view(if connected {
+            TunnelStatus::Connected
+        } else {
+            TunnelStatus::Disconnected
+        })
+        .await;
+    let verified = connected && health.status == crate::health::HealthStatus::Verified;
     let cs = view.settings.language == "cs";
     let title = if view.auto_connecting {
         if cs {
@@ -203,10 +215,19 @@ pub async fn update_tray(app: &tauri::AppHandle) {
             "Error"
         }
     } else if connected {
-        if cs {
-            "Připojeno"
-        } else {
-            "Connected"
+        match (health.status, cs) {
+            (crate::health::HealthStatus::Verified, true) => "WARP ověřen",
+            (crate::health::HealthStatus::Verified, false) => "WARP verified",
+            (
+                crate::health::HealthStatus::Unknown | crate::health::HealthStatus::Checking,
+                true,
+            ) => "Ověřování WARP…",
+            (
+                crate::health::HealthStatus::Unknown | crate::health::HealthStatus::Checking,
+                false,
+            ) => "Verifying WARP…",
+            (_, true) => "Služba běží · WARP neověřen",
+            (_, false) => "Service running · WARP not verified",
         }
     } else {
         if cs {
@@ -217,7 +238,7 @@ pub async fn update_tray(app: &tauri::AppHandle) {
     };
     if let Some(tray) = app.tray_by_id("warply") {
         let _ = tray.set_tooltip(Some(format!("Warply — {title}")));
-        if let Ok(image) = tray_image(app, connected, crate::appearance::system_dark()) {
+        if let Ok(image) = tray_image(app, verified, crate::appearance::system_dark()) {
             let _ = tray.set_icon(Some(image));
         }
     }
@@ -314,6 +335,7 @@ pub fn start_monitor(app: tauri::AppHandle) {
                     force_reconnect = false;
                 } else {
                     if changed {
+                        state.health.invalidate().await;
                         retry.reset();
                         force_reconnect = true;
                     }
@@ -326,6 +348,7 @@ pub fn start_monitor(app: tauri::AppHandle) {
                         if let Ok(_operation) = state.operation.try_lock() {
                             // Recheck user intent after taking the operation lock.
                             if state.desired_connected.load(Ordering::SeqCst) {
+                                state.health.invalidate().await;
                                 if dropped && !outage {
                                     notify(&view.settings, false);
                                     outage = true;

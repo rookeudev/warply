@@ -30,6 +30,7 @@ pub struct SetupView {
 }
 
 pub struct AppState {
+    pub health: crate::health::HealthMonitor,
     pub operation: Mutex<()>,
     pub view: Mutex<SetupView>,
     pub desired_connected: AtomicBool,
@@ -39,6 +40,7 @@ pub struct AppState {
 impl Default for AppState {
     fn default() -> Self {
         Self {
+            health: crate::health::HealthMonitor::default(),
             operation: Mutex::new(()),
             desired_connected: AtomicBool::new(false),
             quitting: AtomicBool::new(false),
@@ -75,15 +77,28 @@ where
     F: Future<Output = Result<TunnelDetails, String>>,
 {
     if let Some(contents) = store.load()? {
+        let contents = zeroize::Zeroizing::new(contents);
         config::validate_import(&contents)
             .map_err(|_| "The saved config is invalid. Reset the WARP account or import a config in Settings → Advanced.".to_string())?;
         return Ok(ProfileOutcome::Existing);
     }
+    replace_profile(store, register).await?;
+    Ok(ProfileOutcome::Created)
+}
+
+pub async fn replace_profile<S, R, F>(store: &S, register: R) -> Result<(), String>
+where
+    S: ProfileStore,
+    R: FnOnce(String) -> F,
+    F: Future<Output = Result<TunnelDetails, String>>,
+{
     let pair = keys::generate();
     let details = register(pair.public_key).await?;
-    let contents = config::build(&pair.private_key, &details).map_err(|error| error.to_string())?;
+    let contents = zeroize::Zeroizing::new(
+        config::build(&pair.private_key, &details).map_err(|error| error.to_string())?,
+    );
     store.save(&contents)?;
-    Ok(ProfileOutcome::Created)
+    Ok(())
 }
 
 #[cfg(test)]
@@ -170,6 +185,27 @@ mod tests {
             .is_err());
             assert_eq!(calls.get(), 0);
             assert_eq!(store.load().expect("load"), Some("invalid".into()));
+        });
+    }
+
+    #[test]
+    fn failed_reset_preserves_profile_and_success_replaces_it() {
+        tauri::async_runtime::block_on(async {
+            let store = MemoryStore(RefCell::new(None));
+            ensure_profile(&store, |_| async { Ok(details()) })
+                .await
+                .expect("initial");
+            let saved = store.load().expect("load");
+            assert!(
+                replace_profile(&store, |_| async { Err("Rate limited".into()) })
+                    .await
+                    .is_err()
+            );
+            assert_eq!(store.load().expect("load"), saved);
+            replace_profile(&store, |_| async { Ok(details()) })
+                .await
+                .expect("replace");
+            assert_ne!(store.load().expect("load"), saved);
         });
     }
 }

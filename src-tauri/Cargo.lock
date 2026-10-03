@@ -4311,7 +4311,7 @@ dependencies = [
 
 [[package]]
 name = "warply"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "base64 0.22.1",
  "reqwest 0.12.28",
@@ -4322,7 +4322,9 @@ dependencies = [
  "tauri-plugin-updater",
  "thiserror 2.0.21",
  "window-vibrancy",
+ "windows-sys 0.61.2",
  "x25519-dalek",
+ "zeroize",
 ]
 
 [[package]]
