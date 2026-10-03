@@ -168,6 +168,27 @@ pub(crate) fn windows_executable(name: &str) -> PathBuf {
 }
 
 #[cfg(target_os = "windows")]
+pub(crate) fn program_files_directory() -> Result<PathBuf, String> {
+    use std::{ffi::c_void, os::windows::ffi::OsStringExt};
+    #[repr(C)]
+    struct Guid { a: u32, b: u16, c: u16, d: [u8; 8] }
+    #[link(name = "shell32")]
+    extern "system" { fn SHGetKnownFolderPath(id: *const Guid, flags: u32, token: *mut c_void, path: *mut *mut u16) -> i32; }
+    #[link(name = "ole32")]
+    extern "system" { fn CoTaskMemFree(pointer: *mut c_void); }
+    let id = Guid { a: 0x905e63b6, b: 0xc1bf, c: 0x494e, d: [0xb2,0x9c,0x65,0xb7,0x32,0xd3,0xd2,0x1a] };
+    let mut pointer = std::ptr::null_mut();
+    if unsafe { SHGetKnownFolderPath(&id, 0, std::ptr::null_mut(), &mut pointer) } < 0 || pointer.is_null() { return Err("Could not locate Program Files.".into()); }
+    let mut length = 0;
+    unsafe {
+        while *pointer.add(length) != 0 { length += 1; }
+        let path = std::ffi::OsString::from_wide(std::slice::from_raw_parts(pointer, length));
+        CoTaskMemFree(pointer.cast());
+        Ok(PathBuf::from(path))
+    }
+}
+
+#[cfg(target_os = "windows")]
 pub(crate) fn hidden_command(executable: impl AsRef<std::ffi::OsStr>) -> Command {
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;

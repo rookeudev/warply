@@ -1,4 +1,5 @@
 use std::future::Future;
+use std::sync::atomic::AtomicBool;
 
 use serde::Serialize;
 use tauri::async_runtime::Mutex;
@@ -31,12 +32,16 @@ pub struct SetupView {
 pub struct AppState {
     pub operation: Mutex<()>,
     pub view: Mutex<SetupView>,
+    pub desired_connected: AtomicBool,
+    pub quitting: AtomicBool,
 }
 
 impl Default for AppState {
     fn default() -> Self {
         Self {
             operation: Mutex::new(()),
+            desired_connected: AtomicBool::new(false),
+            quitting: AtomicBool::new(false),
             view: Mutex::new(SetupView {
                 status: SetupStatus::Starting,
                 message: None,

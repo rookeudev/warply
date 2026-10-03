@@ -13,10 +13,11 @@
     "windows": [
       {
         "title": "Warply",
-        "width": 520,
-        "height": 640,
-        "minWidth": 420,
-        "minHeight": 540
+        "width": 380,
+        "height": 560,
+        "resizable": false,
+        "maximizable": false,
+        "transparent": true
       }
     ],
     "security": {
@@ -26,6 +27,14 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": ["icons/icon.png", "icons/icon.ico"]
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine"
+      }
+    }
   }
 }

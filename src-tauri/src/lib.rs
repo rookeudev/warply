@@ -1,3 +1,4 @@
+mod appearance;
 mod commands;
 mod config;
 mod elevation;
@@ -30,6 +31,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            appearance::set_window_appearance,
+            appearance::open_project_page,
             commands::tunnel_snapshot,
             commands::import_config,
             commands::connect_tunnel,

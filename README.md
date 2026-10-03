@@ -1,114 +1,106 @@
-# Warply
+<p align="center">
+  <img src="assets/warply-logo.png" width="128" alt="Warply logo">
+</p>
 
-**Unofficial one-click Cloudflare WARP config generator.**
-Get a free WireGuard configuration and a QR code for your phone or PC, no terminal needed.
+<h1 align="center">Warply</h1>
 
-![License](https://img.shields.io/badge/license-MIT-blue)
-![Status](https://img.shields.io/badge/status-work%20in%20progress-orange)
+<p align="center">
+  Cloudflare WARP for Windows with one button.<br>
+  Click on, you're protected. Click off, you're back to normal.
+</p>
 
-> **Not affiliated with Cloudflare.** Warply is an independent open-source project. "Cloudflare" and "WARP" are trademarks of Cloudflare, Inc.
+<p align="center">
+  <a href="../../releases/latest"><b>Download</b></a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#faq">FAQ</a>
+</p>
 
-<!-- Add a screenshot or GIF here: ![Warply demo](docs/demo.gif) -->
+<p align="center">
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4">
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
+  <img alt="Status" src="https://img.shields.io/badge/status-work%20in%20progress-orange">
+</p>
+
+<!-- Add a screenshot here, for example: -->
+<!-- <p align="center"><img src="docs/screenshot.png" width="360" alt="Warply screenshot"></p> -->
+
+> **Unofficial.** Warply is an independent open-source project and is not affiliated with Cloudflare. "Cloudflare" and "WARP" are trademarks of Cloudflare, Inc.
 
 ---
 
-## What is Warply?
+## Why Warply
 
-Cloudflare WARP is a free service that encrypts your traffic and routes it through Cloudflare's network. It is built on WireGuard, but the official app is closed-source and offers almost no settings.
-
-Tools like `wgcf` can generate a standard WireGuard config from a free WARP account, but they only work in a terminal. **Warply does the same thing with a simple interface**, so anyone can use WARP with any WireGuard client.
+Cloudflare WARP is free and built on WireGuard, but setting it up by hand means command-line tools, config files and the WireGuard client. Warply does all of that for you. Install it, press the button, done.
 
 ## Features
 
-- One-click registration of a free WARP account
-- WireGuard config generated locally (your private key never leaves your device)
-- QR code for the WireGuard mobile apps and a `.conf` file for desktop
-- Custom DNS
-- Split tunneling (choose what goes through WARP)
-- Custom endpoint, useful when the default one is slow or blocked
-- Built-in IP / DNS leak check
-- No server, no database, no account with us, no tracking
+- **One button.** On and off, nothing else to configure.
+- **Automatic setup.** Creates a free WARP account on first launch. No sign-up, no files to import.
+- **Runs in the background.** Lives in the system tray and can start with Windows, quietly.
+- **Reconnects by itself** after sleep or a network change.
+- **Private by design.** No account with us, no telemetry, no server. Your key never leaves your PC.
 
-> Some features may still be in development. See the [Roadmap](#roadmap).
+## Download
 
-## Important: what WARP does and does not do
+1. Go to the [latest release](../../releases/latest) and download the installer (`Warply-Setup.exe`).
+2. Run it. Warply asks to install WireGuard if you don't have it.
+3. Open Warply and press the button.
 
-Please read this before using it.
+Windows 10 and 11 are supported. Administrator rights are needed once, to create the network tunnel.
 
-- WARP **encrypts your traffic** and hides it from your ISP and from people on the same public Wi-Fi.
-- WARP **does not let you choose a country**. Websites will see a Cloudflare IP address, and your location will roughly match your real one.
-- WARP is **not a replacement for Tor** or a no-logs VPN. Cloudflare can see connection metadata.
-- It is **not meant for bypassing geo-blocks**.
+## How it works
 
-## Installation
+1. On first launch, Warply creates a WireGuard key pair on your PC and registers a free WARP account with Cloudflare. Only the public key is sent.
+2. It builds a standard WireGuard configuration and stores it protected on your machine.
+3. The on/off button starts or stops that tunnel using the official WireGuard service for Windows.
 
-### Download
+## What WARP does and doesn't do
 
-Grab the latest build for your system from the [Releases](../../releases) page.
+- It **encrypts your traffic** between your PC and Cloudflare, which protects you on public Wi-Fi and hides your activity from your internet provider.
+- It does **not** let you pick a country. Websites see a Cloudflare address, and your location stays roughly the same.
+- It is **not** a replacement for Tor or a no-logs VPN, and it is not meant for bypassing geo-blocks.
 
-| System  | File          |
-| ------- | ------------- |
-| Windows | `.exe` / `.msi` |
-| macOS   | `.dmg`        |
-| Linux   | `.AppImage` / `.deb` |
+## Privacy and security
 
-### Build from source
+- Your private key is created locally and never leaves your device.
+- No analytics, no tracking, no ads.
+- Showing your public IP in the app makes one request to an IP service. You can turn it off in Settings.
+- Releases are published as an installer only, with checksums.
+- Found a security problem? See [SECURITY.md](SECURITY.md).
+
+## FAQ
+
+**Do I need to install WireGuard first?**
+No. Warply offers to install it for you the first time.
+
+**Why does it ask for administrator rights?**
+Creating a network tunnel on Windows requires them. Warply asks once.
+
+**Will it change my country or unlock other regions?**
+No. See [What WARP does and doesn't do](#what-warp-does-and-doesnt-do).
+
+**Is it free?**
+Yes. Warply and the WARP account it creates are free.
+
+**Something stopped working.**
+Cloudflare can change how free accounts are created. Open an [issue](../../issues) and we'll fix it.
+
+## Build from source
+
+You need Node.js 18+, Rust and the [Tauri prerequisites](https://tauri.app/start/prerequisites/).
 
 ```bash
 git clone https://github.com/YOUR-USERNAME/warply.git
 cd warply
 npm install
 npm run tauri dev      # run in development
-npm run tauri build    # create a release build
+npm run tauri build    # build the installer
 ```
-
-Requirements: Node.js 18+, Rust, and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your OS.
-
-## Usage
-
-1. Open Warply and click **Generate config**.
-2. Optionally adjust DNS, split tunneling, or endpoint.
-3. Scan the **QR code** with the WireGuard app on your phone, or **export the `.conf` file** and import it into WireGuard on your computer.
-4. Connect in WireGuard and use the **leak check** to verify it works.
-
-You need the official [WireGuard client](https://www.wireguard.com/install/) installed to connect.
-
-## How it works
-
-1. Warply generates a WireGuard key pair locally.
-2. It registers the public key with Cloudflare's WARP registration API (the same one used by the official client and `wgcf`).
-3. Cloudflare returns your address and peer details.
-4. Warply assembles them, together with your private key, into a standard WireGuard config.
-
-Your private key is created and stored only on your device. Warply has no backend.
-
-## Roadmap
-
-- [ ] Account registration and config export
-- [ ] QR code generation
-- [ ] DNS and endpoint options
-- [ ] Split tunneling editor
-- [ ] IP / DNS / WebRTC / IPv6 leak check
-- [ ] Automatic endpoint speed test
-- [ ] Translations (Czech, English, ...)
-
-## Known limitations
-
-- Warply relies on an unofficial use of Cloudflare's registration API. Cloudflare may change or restrict it at any time, which could break the app until it is updated.
-- Free WARP speed and availability are controlled by Cloudflare.
 
 ## Contributing
 
-Issues and pull requests are welcome. If you plan a bigger change, please open an issue first so we can discuss it.
-
-1. Fork the repository
-2. Create a branch: `git checkout -b feature/my-feature`
-3. Commit your changes and open a pull request
-
-## Disclaimer
-
-This software is provided as-is, without warranty. You are responsible for how you use it and for following Cloudflare's terms of service and the laws of your country.
+Issues and pull requests are welcome. For bigger changes, please open an issue first.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). Provided as-is, without warranty. You are responsible for following Cloudflare's terms and the laws of your country.

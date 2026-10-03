@@ -125,12 +125,12 @@ fn validate_key(key: &str) -> Result<(), ConfigError> {
     }
 }
 
-fn validate_endpoint(endpoint: &str) -> Result<(), ConfigError> {
+pub(crate) fn validate_endpoint(endpoint: &str) -> Result<(), ConfigError> {
     if endpoint.contains(['\n', '\r', '\t', ' ']) {
         return Err(ConfigError::InvalidDetails);
     }
-    if endpoint.parse::<SocketAddr>().is_ok() {
-        return Ok(());
+    if let Ok(address) = endpoint.parse::<SocketAddr>() {
+        return if address.port() != 0 { Ok(()) } else { Err(ConfigError::InvalidDetails) };
     }
     let (host, port) = endpoint
         .rsplit_once(':')

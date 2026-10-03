@@ -4,11 +4,34 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Default, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Settings {
     pub auto_connect: bool,
     pub install_prompted: bool,
+    pub start_with_windows: bool,
+    pub start_minimized: bool,
+    pub close_to_tray: bool,
+    pub dns: String,
+    pub custom_dns: String,
+    pub endpoint: String,
+    pub language: String,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            auto_connect: false,
+            install_prompted: false,
+            start_with_windows: false,
+            start_minimized: false,
+            close_to_tray: true,
+            dns: "config".into(),
+            custom_dns: String::new(),
+            endpoint: String::new(),
+            language: "en".into(),
+        }
+    }
 }
 
 pub trait ProfileStore {
