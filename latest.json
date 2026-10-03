@@ -1,5 +1,5 @@
 {
-  "version": "0.2.0",
+  "version": "0.3.0",
   "notes": "Simple startup loading screen, restored Windows Start menu shortcut, visible manual launches, and retained privacy/security hardening.",
   "platforms": {
     "windows-x86_64": {
