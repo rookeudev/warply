@@ -1,4 +1,4 @@
-# Security model — v0.4.0
+# Security model — v0.2.0
 
 Warply has additional safeguards, but this is not a claim of complete security or a full independent audit. Source secrecy is not a security control.
 

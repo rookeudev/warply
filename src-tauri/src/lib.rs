@@ -67,7 +67,8 @@ pub fn run() {
             let settings = storage::load_settings().unwrap_or_default();
             let has_config = storage::profile_exists().unwrap_or(false);
             let autostart = std::env::args_os().any(|argument| argument == "--autostart");
-            if (!settings.start_minimized && !autostart) || !has_config {
+            // Manual launches (including Start search) always show the window.
+            if !autostart || !settings.start_minimized || !has_config {
                 background::show(&handle);
             }
             background::start_monitor(handle.clone());

@@ -7,6 +7,7 @@ import ConnectionDetails from './components/ConnectionDetails'
 import About from './components/About'
 import PowerButton, { type PowerState } from './components/PowerButton'
 import StatusBlock from './components/StatusBlock'
+import LoadingScreen from './components/LoadingScreen'
 import { usePreferences } from './hooks/usePreferences'
 import { useTunnel } from './hooks/useTunnel'
 import { localizeBackendMessage } from './i18n'
@@ -118,7 +119,7 @@ export default function App() {
   const failed =
     !!message || setup === 'registration_error' || snapshot?.status === 'error'
   const powerState: PowerState =
-    setupBusy || connecting || verifying
+    (setupBusy && !failed) || connecting || verifying
       ? 'connecting'
       : failed
         ? 'error'
@@ -147,7 +148,7 @@ export default function App() {
       : connected
         ? t('verificationFailed')
         : t('ready')
-  if (setupBusy) {
+  if (setupBusy && !failed) {
     title = t('starting')
     secondary =
       setup === 'creating_account'
@@ -175,6 +176,10 @@ export default function App() {
     : notice?.startsWith('Config imported')
       ? t('imported')
       : notice
+
+  if (view === 'main' && setupBusy && !failed) {
+    return <LoadingScreen message={secondary} />
+  }
 
   return (
     <div className="app-shell">
@@ -251,7 +256,7 @@ export default function App() {
             <StatusBlock
               title={title}
               secondary={secondary}
-              error={failed && !setupBusy && !connecting}
+              error={failed && !connecting}
             />
             {setup === 'ready' && (
               <ConnectionDetails

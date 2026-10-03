@@ -31,3 +31,11 @@ These are fixture screenshots, not a live VPN session:
 - Cancel reset; then force a registration failure. The old profile must remain usable. Confirm that a successful reset replaces it only once the replacement is ready.
 - Try duplicate sections, invalid optional fields, script hooks, and linked files. Imports/exports must fail safely.
 - Check normal setup, connect/disconnect, tray, autostart from Program Files, updater cancellation, and a signed update in a disposable Windows VM.
+
+## Startup and Start menu — 0.2.0
+
+The main window shows a minimal loading screen with the local logo, a spinner, and the current setup status while initialization is pending. It has no simulated percentage or fixed delay. A ready or failed setup returns to the normal main view, including retry/Advanced options. Reduced-motion settings stop the spinner animation.
+
+The NSIS post-install hook restores the all-users `Warply.lnk` Start menu entry on both fresh installs and updates, sets its app identity, and notifies the Windows shell. Manual launches always show the app; the tray-at-logon preference only affects `--autostart` launches. Portable extraction alone does not register an installed Start menu application.
+
+Manual acceptance: install the EXE, search Start for Warply, launch it with tray-at-logon enabled, and confirm the window opens. Repeat an installer update after removing its shortcut; check that uninstall removes the shortcut. Test loading-to-ready and loading-to-error, light/dark, Czech/English, and reduced motion.

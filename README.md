@@ -36,6 +36,8 @@ Cloudflare WARP is a free service that encrypts your internet traffic. Setting i
 - **Runs in the background.** Sits in the system tray and can start with Windows.
 - **Reconnects by itself** after sleep or a network change.
 - **Verified status.** A running WireGuard service and a successful WARP check are shown separately.
+- **Simple loading screen.** Logo and status while automatic setup starts; errors open the normal recovery screen.
+- **Start menu.** The installer creates a searchable Warply shortcut. Manual launches open the window even when Windows logon is set to start in the tray.
 - **Organized settings.** Startup, connection, appearance, account, and updates have their own sections.
 - **Signed updates.** Check for new releases and install them from the app.
 - **Private.** No telemetry, analytics, usage history, crash uploads, or Warply server. Your private key stays on your PC. [Privacy details](docs/privacy.md).
