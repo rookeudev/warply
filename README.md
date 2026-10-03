@@ -105,6 +105,12 @@ Please do not redistribute modified versions, rebrand the application, or publis
 
 Bug reports and security reports may still be submitted through GitHub Issues.
 
+## Support
+
+If you find Warply useful and want to support the project, you can buy me a coffee on Ko-fi.
+
+[**Support Warply on Ko-fi**](https://ko-fi.com/rookdev)
+
 ## License
 
 Warply is provided under the **Warply Source-Available License**.
