@@ -21,9 +21,6 @@
   <img alt="Status" src="https://img.shields.io/badge/status-work%20in%20progress-orange">
 </p>
 
-<!-- Add a screenshot here, for example: -->
-<!-- <p align="center"><img src="docs/screenshot.png" width="360" alt="Warply screenshot"></p> -->
-
 > **Unofficial.** Warply is an independent open-source project and is not affiliated with Cloudflare. "Cloudflare" and "WARP" are trademarks of Cloudflare, Inc.
 
 ---
@@ -31,6 +28,12 @@
 ## Why Warply
 
 Cloudflare WARP is free and built on WireGuard, but setting it up by hand means command-line tools, config files and the WireGuard client. Warply does all of that for you. Install it, press the button, done.
+
+## What is Warply?
+
+Cloudflare WARP is a free service that encrypts your traffic and routes it through Cloudflare's network. It is built on WireGuard, but the official app is closed-source and offers almost no settings.
+
+Warply makes the same setup available through a simple Windows app: no terminal, no manual config, and no account with us.
 
 ## Features
 
@@ -91,16 +94,65 @@ You need Node.js 18+, Rust and the [Tauri prerequisites](https://tauri.app/start
 
 ```bash
 git clone https://github.com/YOUR-USERNAME/warply.git
+```
+
+```bash
+git clone https://github.com/YOUR-USERNAME/warply.git
 cd warply
 npm install
 npm run tauri dev      # run in development
-npm run tauri build    # build the installer
-```
+cd warply
+npm install
+npm run tauri dev      # run in development
+npm run tauri build    # create a release build
+
+Requirements: Node.js 18+, Rust, and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your OS.
+
+## Usage
+
+1. Open Warply and click **Generate config**.
+2. Optionally adjust DNS, split tunneling, or endpoint.
+3. Scan the **QR code** with the WireGuard app on your phone, or **export the `.conf` file** and import it into WireGuard on your computer.
+4. Connect in WireGuard and use the **leak check** to verify it works.
+
+You need the official [WireGuard client](https://www.wireguard.com/install/) installed to connect.
+
+## How it works
+
+1. Warply generates a WireGuard key pair locally.
+2. It registers the public key with Cloudflare's WARP registration API (the same one used by the official client and `wgcf`).
+3. Cloudflare returns your address and peer details.
+4. Warply assembles them, together with your private key, into a standard WireGuard config.
+
+Your private key is created and stored only on your device. Warply has no backend.
+
+## Roadmap
+
+- [ ] Account registration and config export
+- [ ] QR code generation
+- [ ] DNS and endpoint options
+- [ ] Split tunneling editor
+- [ ] IP / DNS / WebRTC / IPv6 leak check
+- [ ] Automatic endpoint speed test
+- [ ] Translations (Czech, English, ...)
+
+## Known limitations
+
+- Warply relies on an unofficial use of Cloudflare's registration API. Cloudflare may change or restrict it at any time, which could break the app until it is updated.
+- Free WARP speed and availability are controlled by Cloudflare.
 
 ## Contributing
 
-Issues and pull requests are welcome. For bigger changes, please open an issue first.
+Issues and pull requests are welcome. If you plan a bigger change, please open an issue first so we can discuss it.
+
+1. Fork the repository
+2. Create a branch: `git checkout -b feature/my-feature`
+3. Commit your changes and open a pull request
+
+## Disclaimer
+
+This software is provided as-is, without warranty. You are responsible for how you use it and for following Cloudflare's terms of service and the laws of your country.
 
 ## License
 
-[MIT](LICENSE). Provided as-is, without warranty. You are responsible for following Cloudflare's terms and the laws of your country.
+[MIT](LICENSE)
