@@ -14,6 +14,7 @@ import type { Language } from '../i18n'
 import SettingRow from './SettingRow'
 import SettingsList from './SettingsList'
 import Toggle from './Toggle'
+import NetworkSettings from './NetworkSettings'
 
 type Props = {
   controls: TunnelControls
@@ -36,14 +37,25 @@ export default function Settings({
   return (
     <div className="settings-content">
       <SettingsList title={t('general')}>
-        <SettingRow
-          label={t('startWithWindows')}
-          description={t('notAvailable')}
-        >
-          <Toggle checked={false} disabled label={t('startWithWindows')} />
+        <SettingRow label={t('startWithWindows')}>
+          <Toggle
+            checked={snapshot?.settings?.start_with_windows ?? false}
+            disabled={locked || !snapshot}
+            label={t('startWithWindows')}
+            onChange={(enabled) =>
+              void controls.setGeneral('start_with_windows', enabled)
+            }
+          />
         </SettingRow>
-        <SettingRow label={t('startMinimized')} description={t('notAvailable')}>
-          <Toggle checked={false} disabled label={t('startMinimized')} />
+        <SettingRow label={t('startMinimized')}>
+          <Toggle
+            checked={snapshot?.settings?.start_minimized ?? false}
+            disabled={locked || !snapshot}
+            label={t('startMinimized')}
+            onChange={(enabled) =>
+              void controls.setGeneral('start_minimized', enabled)
+            }
+          />
         </SettingRow>
         <SettingRow label={t('autoConnect')}>
           <Toggle
@@ -53,35 +65,25 @@ export default function Settings({
             onChange={(enabled) => void controls.setAutoConnect(enabled)}
           />
         </SettingRow>
-        <SettingRow label={t('closeToTray')} description={t('notAvailable')}>
-          <Toggle checked={false} disabled label={t('closeToTray')} />
+        <SettingRow label={t('closeToTray')}>
+          <Toggle
+            checked={snapshot?.settings?.close_to_tray ?? true}
+            disabled={locked || !snapshot}
+            label={t('closeToTray')}
+            onChange={(enabled) =>
+              void controls.setGeneral('close_to_tray', enabled)
+            }
+          />
         </SettingRow>
       </SettingsList>
 
       <SettingsList title={t('network')}>
-        <SettingRow label={t('dns')} description={t('notAvailable')}>
-          <select
-            className="native-select"
-            aria-label={t('dns')}
-            value="config"
-            disabled
-          >
-            <option value="config">{t('managedConfig')}</option>
-            <option value="cloudflare">{t('cloudflare')}</option>
-            <option value="google">{t('google')}</option>
-            <option value="quad9">{t('quad9')}</option>
-            <option value="custom">{t('custom')}</option>
-          </select>
-        </SettingRow>
-        <details className="advanced-section">
-          <summary>
-            {t('advanced')}
-            <ChevronDown size={16} aria-hidden="true" />
-          </summary>
-          <SettingRow label={t('endpoint')} description={t('notAvailable')}>
-            <span className="setting-value">{t('managedConfig')}</span>
-          </SettingRow>
-        </details>
+        <NetworkSettings
+          key={`${snapshot?.settings?.dns}:${snapshot?.settings?.custom_dns}:${snapshot?.settings?.endpoint}`}
+          controls={controls}
+          t={t}
+          disabled={locked || !disconnected || !snapshot?.has_config}
+        />
       </SettingsList>
 
       <SettingsList title={t('account')}>

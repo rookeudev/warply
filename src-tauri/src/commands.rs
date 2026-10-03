@@ -21,6 +21,7 @@ pub struct TunnelSnapshot {
     setup_message: Option<String>,
     auto_connect: bool,
     settings: storage::Settings,
+    poll_after_ms: u64,
 }
 
 async fn snapshot(state: &AppState) -> Result<TunnelSnapshot, String> {
@@ -48,12 +49,20 @@ async fn snapshot(state: &AppState) -> Result<TunnelSnapshot, String> {
         setup_message: view.message.clone(),
         auto_connect: view.settings.auto_connect,
         settings: view.settings.clone(),
+        poll_after_ms: 3000,
     })
 }
 
 #[tauri::command]
-pub async fn tunnel_snapshot(state: State<'_, AppState>) -> Result<TunnelSnapshot, String> {
-    snapshot(&state).await
+pub async fn tunnel_snapshot(
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+) -> Result<TunnelSnapshot, String> {
+    let mut snapshot = snapshot(&state).await?;
+    if !window.is_visible().unwrap_or(false) {
+        snapshot.poll_after_ms = 15000;
+    }
+    Ok(snapshot)
 }
 
 pub async fn initialize(state: &AppState) {
@@ -81,6 +90,12 @@ pub async fn initialize(state: &AppState) {
             state.update(SetupStatus::Ready, Some(message)).await;
         }
         state.view.lock().await.auto_connecting = false;
+    } else if view.status == SetupStatus::Ready {
+        let connected = tauri::async_runtime::spawn_blocking(|| tunnel::backend().status()).await;
+        state.desired_connected.store(
+            matches!(connected, Ok(Ok(TunnelStatus::Connected))),
+            Ordering::SeqCst,
+        );
     }
 }
 
@@ -187,8 +202,10 @@ pub(crate) async fn connect() -> Result<(), String> {
             .ok_or_else(|| "Automatic setup has not finished. Select Try again.".to_string())?;
         config::validate_import(&contents).map_err(|error| error.to_string())?;
         let settings = storage::load_settings()?;
-        let contents = crate::network::apply(&contents, &settings)?;
-        SecureProfileStore.save(&contents)?;
+        let updated = crate::network::apply(&contents, &settings)?;
+        if updated != contents {
+            SecureProfileStore.save(&updated)?;
+        }
         tunnel::backend()
             .connect(&storage::config_path()?)
             .map_err(|error| error.to_string())
@@ -208,7 +225,17 @@ pub async fn connect_tunnel(state: State<'_, AppState>) -> Result<TunnelSnapshot
             "Automatic setup has not finished. Try again or open Settings → Advanced.".into(),
         );
     }
-    connect().await?;
+    {
+        let mut view = state.view.lock().await;
+        view.auto_connecting = true;
+        view.message = None;
+    }
+    let result = connect().await;
+    state.view.lock().await.auto_connecting = false;
+    if let Err(message) = result {
+        state.view.lock().await.message = Some(message.clone());
+        return Err(message);
+    }
     state.desired_connected.store(true, Ordering::SeqCst);
     state.view.lock().await.message = None;
     snapshot(&state).await
@@ -217,10 +244,9 @@ pub async fn connect_tunnel(state: State<'_, AppState>) -> Result<TunnelSnapshot
 #[tauri::command]
 pub async fn disconnect_tunnel(state: State<'_, AppState>) -> Result<TunnelSnapshot, String> {
     state.desired_connected.store(false, Ordering::SeqCst);
-    let _operation = state
-        .operation
-        .try_lock()
-        .map_err(|_| "Another operation is in progress.".to_string())?;
+    // Cancel recovery intent immediately, then wait for an in-flight recovery
+    // to finish so the requested disconnect always removes its service too.
+    let _operation = state.operation.lock().await;
     tauri::async_runtime::spawn_blocking(|| {
         tunnel::backend()
             .disconnect()
@@ -243,12 +269,20 @@ pub(crate) fn require_disconnected() -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) async fn change_general(state: &AppState, name: &str, enabled: bool) -> Result<(), String> {
-    let _operation = state.operation.try_lock().map_err(|_| "Another operation is in progress.".to_string())?;
+pub(crate) async fn change_general(
+    state: &AppState,
+    name: &str,
+    enabled: bool,
+) -> Result<(), String> {
+    let _operation = state
+        .operation
+        .try_lock()
+        .map_err(|_| "Another operation is in progress.".to_string())?;
     let mut settings = state.view.lock().await.settings.clone();
     match name {
         "start_with_windows" => {
-            tauri::async_runtime::spawn_blocking(move || crate::autostart::set_enabled(enabled)).await
+            tauri::async_runtime::spawn_blocking(move || crate::autostart::set_enabled(enabled))
+                .await
                 .map_err(|_| "Could not update the startup task.".to_string())??;
             settings.start_with_windows = enabled;
         }
@@ -257,7 +291,12 @@ pub(crate) async fn change_general(state: &AppState, name: &str, enabled: bool) 
         _ => return Err("Unknown setting.".into()),
     }
     if let Err(error) = storage::save_settings(&settings) {
-        if name == "start_with_windows" { let old = !enabled; let _ = tauri::async_runtime::spawn_blocking(move || crate::autostart::set_enabled(old)).await; }
+        if name == "start_with_windows" {
+            let old = !enabled;
+            let _ =
+                tauri::async_runtime::spawn_blocking(move || crate::autostart::set_enabled(old))
+                    .await;
+        }
         return Err(error);
     }
     state.view.lock().await.settings = settings;
@@ -265,14 +304,26 @@ pub(crate) async fn change_general(state: &AppState, name: &str, enabled: bool) 
 }
 
 #[tauri::command]
-pub async fn set_general_setting(state: State<'_, AppState>, name: String, enabled: bool) -> Result<TunnelSnapshot, String> {
+pub async fn set_general_setting(
+    state: State<'_, AppState>,
+    name: String,
+    enabled: bool,
+) -> Result<TunnelSnapshot, String> {
     change_general(&state, &name, enabled).await?;
     snapshot(&state).await
 }
 
 #[tauri::command]
-pub async fn set_network_settings(state: State<'_, AppState>, dns: String, custom_dns: String, endpoint: String) -> Result<TunnelSnapshot, String> {
-    let _operation = state.operation.try_lock().map_err(|_| "Another operation is in progress.".to_string())?;
+pub async fn set_network_settings(
+    state: State<'_, AppState>,
+    dns: String,
+    custom_dns: String,
+    endpoint: String,
+) -> Result<TunnelSnapshot, String> {
+    let _operation = state
+        .operation
+        .try_lock()
+        .map_err(|_| "Another operation is in progress.".to_string())?;
     let mut settings = state.view.lock().await.settings.clone();
     settings.dns = dns;
     settings.custom_dns = custom_dns.trim().into();
@@ -281,19 +332,28 @@ pub async fn set_network_settings(state: State<'_, AppState>, dns: String, custo
     let saved_settings = settings.clone();
     tauri::async_runtime::spawn_blocking(move || {
         require_disconnected()?;
-        let contents = SecureProfileStore.load()?.ok_or_else(|| "There is no saved config to change.".to_string())?;
+        let contents = SecureProfileStore
+            .load()?
+            .ok_or_else(|| "There is no saved config to change.".to_string())?;
         let updated = crate::network::apply(&contents, &saved_settings)?;
         SecureProfileStore.save(&updated)?;
-        if let Err(error) = storage::save_settings(&saved_settings) { let _ = SecureProfileStore.save(&contents); return Err(error); }
+        if let Err(error) = storage::save_settings(&saved_settings) {
+            let _ = SecureProfileStore.save(&contents);
+            return Err(error);
+        }
         Ok::<_, String>(())
-    }).await.map_err(|_| "Could not save the network settings.".to_string())??;
+    })
+    .await
+    .map_err(|_| "Could not save the network settings.".to_string())??;
     state.view.lock().await.settings = settings;
     snapshot(&state).await
 }
 
 #[tauri::command]
 pub async fn set_ui_language(state: State<'_, AppState>, language: String) -> Result<(), String> {
-    if language != "en" && language != "cs" { return Err("Unsupported language.".into()); }
+    if language != "en" && language != "cs" {
+        return Err("Unsupported language.".into());
+    }
     let _operation = state.operation.lock().await;
     let mut view = state.view.lock().await;
     view.settings.language = language;

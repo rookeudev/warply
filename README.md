@@ -45,11 +45,11 @@ Warply makes the same setup available through a simple Windows app: no terminal,
 
 ## Download
 
-1. Go to the [latest release](../../releases/latest) and download the installer (`Warply-Setup.exe`).
+1. Go to the [latest release](../../releases/latest) and download the Windows `.exe` installer.
 2. Run it. Warply asks to install WireGuard if you don't have it.
 3. Open Warply and press the button.
 
-Windows 10 and 11 are supported. Administrator rights are needed once, to create the network tunnel.
+Windows 10 and 11 are supported. A fresh manual launch requests administrator rights. Logon startup through Task Scheduler and reopening an existing tray instance do not request another UAC prompt. Autostart requires an installation in Program Files.
 
 ## How it works
 
@@ -67,9 +67,9 @@ Windows 10 and 11 are supported. Administrator rights are needed once, to create
 
 - Your private key is created locally and never leaves your device.
 - No analytics, no tracking, no ads.
-- Showing your public IP in the app makes one request to an IP service. You can turn it off in Settings.
+- The app does not look up your public IP or show invented connection statistics.
 - Releases are published as an installer only, with checksums.
-- Found a security problem? See [SECURITY.md](SECURITY.md).
+- The saved profile currently uses restricted Windows file permissions, not encrypted storage. See the [security audit](docs/security-model.md) for remaining hardening work.
 
 ## FAQ
 
@@ -77,7 +77,7 @@ Windows 10 and 11 are supported. Administrator rights are needed once, to create
 No. Warply offers to install it for you the first time.
 
 **Why does it ask for administrator rights?**
-Creating a network tunnel on Windows requires them. Warply asks once.
+Creating a network tunnel on Windows requires them. Warply elevates at process startup, not on each toggle. Installed logon startup runs through a highest-privilege scheduled task.
 
 **Will it change my country or unlock other regions?**
 No. See [What WARP does and doesn't do](#what-warp-does-and-doesnt-do).
@@ -90,64 +90,42 @@ Cloudflare can change how free accounts are created. Open an [issue](../../issue
 
 ## Build from source
 
-You need Node.js 18+, Rust and the [Tauri prerequisites](https://tauri.app/start/prerequisites/).
+You need Node.js 22.12 or newer, Rust, and the Windows [Tauri prerequisites](https://tauri.app/start/prerequisites/), including the Visual Studio C++ build tools.
 
-```bash
-git clone https://github.com/YOUR-USERNAME/warply.git
+```powershell
+git clone https://github.com/rookeudev/warply.git
+cd warply
+npm ci
+npm run tauri dev
 ```
 
-```bash
-git clone https://github.com/YOUR-USERNAME/warply.git
-cd warply
-npm install
-npm run tauri dev      # run in development
-cd warply
-npm install
-npm run tauri dev      # run in development
-npm run tauri build    # create a release build
+Create Windows installers:
 
-Requirements: Node.js 18+, Rust, and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your OS.
+```powershell
+npm run tauri build
+```
 
-## Usage
+The installers are generated in `src-tauri/target/release/bundle/`. Build output, dependencies, generated schemas and private configs are excluded from Git. To restore dependencies after cloning or cleaning the folder, run `npm ci`; Tauri regenerates its schemas during development/build.
 
-1. Open Warply and click **Generate config**.
-2. Optionally adjust DNS, split tunneling, or endpoint.
-3. Scan the **QR code** with the WireGuard app on your phone, or **export the `.conf` file** and import it into WireGuard on your computer.
-4. Connect in WireGuard and use the **leak check** to verify it works.
+## Settings
 
-You need the official [WireGuard client](https://www.wireguard.com/install/) installed to connect.
+- Start with Windows, start minimized, automatic connection and close to tray.
+- Cloudflare, Google, Quad9 or custom DNS, and an advanced endpoint editor. Disconnect before applying changes.
+- Account reset and explicit configuration export with a private-key warning. Import is available under Account → Advanced.
+- English/Czech and system/light/dark themes.
 
-## How it works
-
-1. Warply generates a WireGuard key pair locally.
-2. It registers the public key with Cloudflare's WARP registration API (the same one used by the official client and `wgcf`).
-3. Cloudflare returns your address and peer details.
-4. Warply assembles them, together with your private key, into a standard WireGuard config.
-
-Your private key is created and stored only on your device. Warply has no backend.
-
-## Roadmap
-
-- [ ] Account registration and config export
-- [ ] QR code generation
-- [ ] DNS and endpoint options
-- [ ] Split tunneling editor
-- [ ] IP / DNS / WebRTC / IPv6 leak check
-- [ ] Automatic endpoint speed test
-- [ ] Translations (Czech, English, ...)
+See the [UI and background review checklist](docs/ui-review.md) for previews, verification results and native Windows checks still requiring manual testing.
 
 ## Known limitations
 
-- Warply relies on an unofficial use of Cloudflare's registration API. Cloudflare may change or restrict it at any time, which could break the app until it is updated.
+- Warply relies on Cloudflare's unofficial registration API, which may change or restrict registrations.
+- Connection status reflects the WireGuard Windows service, not a verified recent handshake or Internet reachability.
+- This is a work-in-progress review build. Encrypted storage, privilege separation and signed release hardening remain pending; see the [security audit](docs/security-model.md).
 - Free WARP speed and availability are controlled by Cloudflare.
 
 ## Contributing
 
-Issues and pull requests are welcome. If you plan a bigger change, please open an issue first so we can discuss it.
-
-1. Fork the repository
-2. Create a branch: `git checkout -b feature/my-feature`
-3. Commit your changes and open a pull request
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development and testing instructions. Never include private keys, account tokens or generated `.conf` files in commits or issues.
 
 ## Disclaimer
 

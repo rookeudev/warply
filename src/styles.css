@@ -94,6 +94,7 @@ summary {
     color var(--motion);
 }
 button:focus-visible,
+input:focus-visible,
 select:focus-visible,
 summary:focus-visible {
   outline: 2px solid var(--accent);
@@ -407,6 +408,33 @@ svg {
   color: var(--muted);
   border-color: var(--separator);
   opacity: 0.65;
+}
+.network-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+  font-size: 12px;
+}
+.native-input {
+  width: 100%;
+  min-height: 32px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  color: var(--text);
+  background: var(--control);
+  padding: 5px 8px;
+  font-size: 12px;
+}
+.network-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 12px;
+}
+.network-actions .native-button {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 .action-row {
   width: 100%;

@@ -17,6 +17,16 @@ export type TunnelSnapshot = {
   setup: SetupStatus
   setup_message: string | null
   auto_connect: boolean
+  poll_after_ms?: number
+  settings: {
+    start_with_windows: boolean
+    start_minimized: boolean
+    close_to_tray: boolean
+    dns: string
+    custom_dns: string
+    endpoint: string
+    language: string
+  }
 }
 
 export function useTunnel() {
@@ -28,10 +38,12 @@ export function useTunnel() {
   const busyRef = useRef(false)
   const requestId = useRef(0)
   const appliedId = useRef(0)
+  const pollDelay = useRef(3000)
 
   const applySnapshot = useCallback((next: TunnelSnapshot, id: number) => {
     if (id >= appliedId.current) {
       appliedId.current = id
+      pollDelay.current = next.poll_after_ms === 15000 ? 15000 : 3000
       setSnapshot(next)
     }
   }, [])
@@ -49,8 +61,26 @@ export function useTunnel() {
 
   useEffect(() => {
     void refresh()
-    const timer = window.setInterval(() => void refresh(), 1000)
-    return () => window.clearInterval(timer)
+    let stopped = false
+    let timer: number
+    async function poll() {
+      await refresh()
+      if (!stopped)
+        timer = window.setTimeout(
+          () => void poll(),
+          document.hidden ? 15000 : pollDelay.current,
+        )
+    }
+    timer = window.setTimeout(() => void poll(), 3000)
+    const visible = () => {
+      if (!document.hidden) void refresh()
+    }
+    document.addEventListener('visibilitychange', visible)
+    return () => {
+      stopped = true
+      window.clearTimeout(timer)
+      document.removeEventListener('visibilitychange', visible)
+    }
   }, [refresh])
 
   async function run(
@@ -114,6 +144,12 @@ export function useTunnel() {
     resetAccount: () => run('reset_account', 'reset'),
     setAutoConnect: (enabled: boolean) =>
       run('set_auto_connect', 'settings', { enabled }),
+    setGeneral: (
+      name: 'start_with_windows' | 'start_minimized' | 'close_to_tray',
+      enabled: boolean,
+    ) => run('set_general_setting', 'settings', { name, enabled }),
+    setNetwork: (dns: string, customDns: string, endpoint: string) =>
+      run('set_network_settings', 'settings', { dns, customDns, endpoint }),
     openDownload: async () => {
       try {
         await invoke('open_wireguard_download')

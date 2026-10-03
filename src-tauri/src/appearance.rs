@@ -91,6 +91,48 @@ fn transparency_enabled() -> bool {
 }
 
 #[cfg(target_os = "windows")]
+pub fn system_dark() -> bool {
+    #[link(name = "advapi32")]
+    extern "system" {
+        fn RegGetValueW(
+            key: *mut std::ffi::c_void,
+            subkey: *const u16,
+            value: *const u16,
+            flags: u32,
+            kind: *mut u32,
+            data: *mut std::ffi::c_void,
+            size: *mut u32,
+        ) -> i32;
+    }
+    let key: Vec<u16> = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+        .encode_utf16()
+        .chain(Some(0))
+        .collect();
+    let name: Vec<u16> = "SystemUsesLightTheme"
+        .encode_utf16()
+        .chain(Some(0))
+        .collect();
+    let mut value = 1u32;
+    let mut size = 4;
+    unsafe {
+        RegGetValueW(
+            (-2147483647isize) as *mut _,
+            key.as_ptr(),
+            name.as_ptr(),
+            0x10,
+            std::ptr::null_mut(),
+            (&mut value as *mut u32).cast(),
+            &mut size,
+        );
+    }
+    value == 0
+}
+#[cfg(not(target_os = "windows"))]
+pub fn system_dark() -> bool {
+    false
+}
+
+#[cfg(target_os = "windows")]
 fn high_contrast_enabled() -> bool {
     #[repr(C)]
     struct HighContrast {

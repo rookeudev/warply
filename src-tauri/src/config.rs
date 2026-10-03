@@ -130,7 +130,11 @@ pub(crate) fn validate_endpoint(endpoint: &str) -> Result<(), ConfigError> {
         return Err(ConfigError::InvalidDetails);
     }
     if let Ok(address) = endpoint.parse::<SocketAddr>() {
-        return if address.port() != 0 { Ok(()) } else { Err(ConfigError::InvalidDetails) };
+        return if address.port() != 0 {
+            Ok(())
+        } else {
+            Err(ConfigError::InvalidDetails)
+        };
     }
     let (host, port) = endpoint
         .rsplit_once(':')

@@ -7,9 +7,11 @@ Issues and pull requests are welcome. For larger changes, please open an issue f
 3. Run `npm run lint`, `npm run build`, `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`, and `cargo test --manifest-path src-tauri/Cargo.toml`.
 4. Describe what changed and how you tested it.
 
-On Windows, run `npm install` and `npm run tauri dev`. Warply restarts itself with a single UAC prompt when needed. Installed builds request elevation once through their application manifest. Rust and the Visual Studio C++ build tools are required for development.
+On Windows, run `npm install` and `npm run tauri dev`. Warply first focuses an existing instance, otherwise it restarts itself with a single UAC prompt when needed. Task Scheduler starts the installed app with highest privileges at logon. Rust and the Visual Studio C++ build tools are required for development.
 
-First launch creates local keys, registers a free WARP account, and securely saves `%LOCALAPPDATA%\Warply\warply.conf`. If WireGuard is missing, one confirmation allows automatic installation. Later launches reuse the saved config and installation decision. Settings → Advanced contains import, account reset, and export; exported files contain a private key.
+First launch creates local keys, registers a free WARP account, and saves `%LOCALAPPDATA%\Warply\warply.conf` with restricted ACLs. Encrypted storage remains pending in the security-hardening work. If WireGuard is missing, one confirmation allows automatic installation. Later launches reuse the saved config and installation decision. Settings → Account contains reset/export; its Advanced section contains import. Exported files contain a private key.
+
+See [UI and background review](docs/ui-review.md) for the visual and native Windows test checklist. Autostart requires installation in Program Files; development/portable copies cannot register an elevated startup task.
 
 Manual checks:
 

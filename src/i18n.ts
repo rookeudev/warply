@@ -37,6 +37,16 @@ export const en = {
   quad9: 'Quad9',
   custom: 'Custom',
   customDns: 'Custom DNS',
+  save: 'Apply',
+  networkDescription: 'Disconnect before changing network settings.',
+  dnsHint: 'IP addresses separated by commas',
+  endpointHint: 'Leave blank to keep the configuration endpoint.',
+  invalidDns: 'Enter up to eight DNS IP addresses separated by commas.',
+  invalidEndpoint: 'Enter an endpoint as hostname:port or [IPv6]:port.',
+  startupInstall:
+    'Install Warply in Program Files before enabling Start with Windows.',
+  reconnectFailed:
+    'Reconnect failed after five attempts. Select Connect to try again.',
   advanced: 'Advanced',
   account: 'Account',
   newAccount: 'Create new WARP account',
@@ -126,6 +136,17 @@ export const cs: Record<MessageKey, string> = {
   quad9: 'Quad9',
   custom: 'Vlastní',
   customDns: 'Vlastní DNS',
+  save: 'Použít',
+  networkDescription: 'Před změnou síťových nastavení se odpojte.',
+  dnsHint: 'IP adresy oddělené čárkami',
+  endpointHint: 'Prázdné pole zachová koncový bod konfigurace.',
+  invalidDns: 'Zadejte nejvýše osm IP adres DNS oddělených čárkami.',
+  invalidEndpoint:
+    'Zadejte koncový bod ve tvaru hostname:port nebo [IPv6]:port.',
+  startupInstall:
+    'Před zapnutím spouštění s Windows nainstalujte Warply do Program Files.',
+  reconnectFailed:
+    'Připojení se nepodařilo obnovit po pěti pokusech. Zkuste se znovu připojit.',
   advanced: 'Pokročilé',
   account: 'Účet',
   newAccount: 'Vytvořit nový účet WARP',
@@ -173,6 +194,12 @@ export const cs: Record<MessageKey, string> = {
 
 export function localizeBackendMessage(message: string, t: Translator): string {
   const messages: Record<string, MessageKey> = {
+    'Enter up to eight DNS IP addresses separated by commas.': 'invalidDns',
+    'Enter an endpoint as hostname:port or [IPv6]:port.': 'invalidEndpoint',
+    'Install Warply in Program Files before enabling Start with Windows.':
+      'startupInstall',
+    'Reconnect failed after five attempts. Select Connect to try again.':
+      'reconnectFailed',
     'Could not reach Cloudflare. Check your internet connection and try again.':
       'networkError',
     'Cloudflare is rate limiting registrations. Please wait and try again.':

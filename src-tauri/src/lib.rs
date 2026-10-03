@@ -1,18 +1,27 @@
 mod appearance;
+mod autostart;
+mod background;
 mod commands;
 mod config;
 mod elevation;
 mod import_dialog;
 mod installer;
+mod instance;
 mod keys;
+mod network;
 mod setup;
 mod storage;
+mod system_events;
 mod tunnel;
 mod warp_api;
 
 use tauri::Manager;
 
 pub fn run() {
+    #[cfg(target_os = "windows")]
+    if instance::focus_existing() {
+        return;
+    }
     match elevation::ensure_administrator() {
         Ok(true) => {}
         Ok(false) => return,
@@ -21,12 +30,35 @@ pub fn run() {
             return;
         }
     }
+    #[cfg(target_os = "windows")]
+    let _instance = match instance::acquire() {
+        Ok(Some(guard)) => guard,
+        Ok(None) => return,
+        Err(message) => {
+            import_dialog::show_error(&message);
+            return;
+        }
+    };
     let result = tauri::Builder::default()
         .manage(setup::AppState::default())
         .setup(|app| {
             let handle = app.handle().clone();
+            background::setup(&handle)?;
+            let settings = storage::load_settings().unwrap_or_default();
+            let has_config = storage::config_path().is_ok_and(|path| path.is_file());
+            let autostart = std::env::args_os().any(|argument| argument == "--autostart");
+            if (!settings.start_minimized && !autostart) || !has_config {
+                background::show(&handle);
+            }
+            background::start_monitor(handle.clone());
             tauri::async_runtime::spawn(async move {
                 commands::initialize(handle.state::<setup::AppState>().inner()).await;
+                let state = handle.state::<setup::AppState>();
+                let view = state.view.lock().await.clone();
+                if view.status != setup::SetupStatus::Ready || view.message.is_some() {
+                    background::show(&handle);
+                }
+                background::update_tray(&handle).await;
             });
             Ok(())
         })
@@ -42,10 +74,44 @@ pub fn run() {
             commands::reset_account,
             commands::export_config,
             commands::set_auto_connect,
+            commands::set_general_setting,
+            commands::set_network_settings,
+            commands::set_ui_language,
             commands::open_wireguard_download
         ])
-        .run(tauri::generate_context!());
-    if result.is_err() {
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let app = window.app_handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let state = app.state::<setup::AppState>();
+                    let close_to_tray = state.view.lock().await.settings.close_to_tray;
+                    if close_to_tray {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.hide();
+                        }
+                    } else {
+                        background::quit_app(app);
+                    }
+                });
+            }
+        })
+        .build(tauri::generate_context!());
+    if let Ok(app) = result {
+        app.run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { api, .. } = event {
+                use std::sync::atomic::Ordering;
+                if !app
+                    .state::<setup::AppState>()
+                    .quitting
+                    .load(Ordering::SeqCst)
+                {
+                    api.prevent_exit();
+                    background::quit_app(app.clone());
+                }
+            }
+        });
+    } else {
         import_dialog::show_error(
             "Warply could not open its window. Check that Microsoft Edge WebView2 is installed.",
         );

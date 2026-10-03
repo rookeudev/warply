@@ -203,6 +203,16 @@ mod tests {
     use super::*;
 
     #[test]
+    fn old_settings_keep_auto_connect_and_receive_background_defaults() {
+        let settings: Settings =
+            serde_json::from_str(r#"{"auto_connect":true,"install_prompted":true}"#)
+                .expect("settings");
+        assert!(settings.auto_connect && settings.install_prompted && settings.close_to_tray);
+        assert!(!settings.start_with_windows && !settings.start_minimized);
+        assert_eq!(settings.dns, "config");
+    }
+
+    #[test]
     fn secure_write_replaces_existing_file_without_a_partial_save() {
         let id = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

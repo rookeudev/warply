@@ -53,6 +53,9 @@ export function usePreferences() {
     }
     let active = true
     if (isTauri()) {
+      void invoke('set_ui_language', { language: preferences.language }).catch(
+        () => {},
+      )
       void invoke<boolean>('set_window_appearance', {
         preference: preferences.theme,
         dark: resolvedTheme === 'dark',

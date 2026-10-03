@@ -40,13 +40,21 @@ pub fn ensure_administrator() -> Result<bool, String> {
         .chain(Some(0))
         .collect();
     let verb: Vec<u16> = "runas".encode_utf16().chain(Some(0)).collect();
+    let parameters: Vec<u16> = if std::env::args_os().any(|argument| argument == "--autostart") {
+        "--autostart"
+    } else {
+        ""
+    }
+    .encode_utf16()
+    .chain(Some(0))
+    .collect();
     let mut info = ShellExecuteInfo {
         size: std::mem::size_of::<ShellExecuteInfo>() as u32,
         mask: 0x40,
         window: std::ptr::null_mut(),
         verb: verb.as_ptr(),
         file: file.as_ptr(),
-        parameters: std::ptr::null(),
+        parameters: parameters.as_ptr(),
         directory: std::ptr::null(),
         show: 1,
         instance: std::ptr::null_mut(),
