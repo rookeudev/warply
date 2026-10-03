@@ -1,21 +1,69 @@
-MIT License
+WARPLY SOURCE-AVAILABLE LICENSE
+Version 1.0 — October 2026
 
-Copyright (c) 2026 Warply contributors
+Copyright (c) 2026 rookeudev
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. GRANT OF RIGHTS
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Permission is granted to view and inspect the Warply source code.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Permission is also granted to download, compile, and use Warply for
+personal, non-commercial purposes.
+
+2. RESTRICTIONS
+
+You may NOT:
+
+- redistribute the Warply source code;
+- redistribute modified versions of the source code;
+- publish modified or unmodified builds of Warply;
+- sell, rent, sublicense, or commercially distribute Warply;
+- use Warply or its source code as the basis for a competing public product;
+- rebrand Warply or publish it under another name;
+- remove or modify copyright notices or attribution;
+- claim Warply or derivative versions as your own;
+- upload the source code or modified versions to another public repository
+  for redistribution.
+
+3. CONTRIBUTIONS
+
+Warply is not an open-source contribution project.
+
+Pull requests and code contributions are not accepted. The author may
+review suggestions or bug reports submitted through the official Warply
+repository, but is under no obligation to accept or implement them.
+
+4. TRADEMARKS
+
+"Warply" and related project branding may not be used to imply
+endorsement, affiliation, or official status without permission from
+the copyright holder.
+
+Cloudflare and WARP are trademarks of Cloudflare, Inc. Warply is an
+independent project and is not affiliated with Cloudflare.
+
+5. THIRD-PARTY SOFTWARE
+
+This license applies only to original Warply code and does not replace
+or override the licenses of third-party software, libraries, or
+components used by Warply.
+
+6. NO WARRANTY
+
+Warply is provided "AS IS", without warranty of any kind, express or
+implied. The author is not responsible for any damage, data loss,
+connectivity issues, account issues, or other consequences resulting
+from the use of the software.
+
+7. TERMINATION
+
+Any rights granted under this license automatically terminate if you
+violate any of the restrictions above.
+
+8. COPYRIGHT
+
+All rights not expressly granted by this license are reserved by the
+copyright holder.
+
+For permissions outside the scope of this license, contact the
+copyright holder.
