@@ -1,0 +1,8 @@
+node_modules/
+dist/
+src-tauri/target/
+*.log
+*.tsbuildinfo
+.DS_Store
+*.conf
+!src-tauri/tests/fixtures/*.conf
