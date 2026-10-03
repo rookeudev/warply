@@ -78,6 +78,9 @@ export default function About({
       <section className="about-notes" aria-label={t('notes')}>
         <h2>{t('notes')}</h2>
         <p>{t('noteLocation')}</p>
+        <p>{t('privacyNoCollection')}</p>
+        <p>{t('privacyStorage')}</p>
+        <p>{t('privacyNetwork')}</p>
         <p>{t('notePrivacy')}</p>
         <p>{t('noteGeo')}</p>
       </section>

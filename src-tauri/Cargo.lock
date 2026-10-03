@@ -4311,10 +4311,11 @@ dependencies = [
 
 [[package]]
 name = "warply"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "base64 0.22.1",
  "reqwest 0.12.28",
+ "reqwest 0.13.5",
  "serde",
  "serde_json",
  "tauri",

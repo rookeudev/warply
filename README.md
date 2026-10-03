@@ -38,7 +38,7 @@ Cloudflare WARP is a free service that encrypts your internet traffic. Setting i
 - **Verified status.** A running WireGuard service and a successful WARP check are shown separately.
 - **Organized settings.** Startup, connection, appearance, account, and updates have their own sections.
 - **Signed updates.** Check for new releases and install them from the app.
-- **Private.** No account with us, no tracking, no server. Your key stays on your PC.
+- **Private.** No telemetry, analytics, usage history, crash uploads, or Warply server. Your private key stays on your PC. [Privacy details](docs/privacy.md).
 
 ## Download
 
@@ -50,8 +50,8 @@ Works on Windows 10 and 11. Administrator rights are needed to create the networ
 
 ## How it works
 
-1. On first launch, Warply creates a WireGuard key pair on your PC and registers a free WARP account with Cloudflare. Only the public key is sent.
-2. It builds a standard WireGuard configuration and stores it on your machine with restricted file permissions.
+1. On first launch, Warply creates a WireGuard key pair on your PC and registers a free WARP account with Cloudflare. Registration sends the public key and fixed protocol fields; the private key is never uploaded.
+2. It builds a standard WireGuard configuration and stores it encrypted with Windows DPAPI and restricted file permissions. The service receives a separate encrypted copy; normal connection creates no plaintext config.
 3. The button starts or stops that tunnel through the official WireGuard service for Windows.
 4. Rust verifies an HTTPS request through the tunnel address every 30 seconds. A running service alone does not show a verified connection.
 
@@ -97,7 +97,7 @@ Release installers require updater signing. See [RELEASING.md](RELEASING.md). In
 - Warply uses Cloudflare's unofficial registration API, which Cloudflare may change at any time.
 - Connection status separates the service state from a recent WARP HTTPS check. It does not certify every application, IPv6 route, or DNS leak prevention.
 - Speed and availability of free WARP are controlled by Cloudflare.
-- Security details and remaining hardening work are in the [security notes](docs/security-model.md).
+- Security details and remaining boundaries are in the [security notes](docs/security-model.md).
 
 ## Project policy
 
@@ -107,7 +107,7 @@ The repository is provided for transparency and personal use. Pull requests, for
 
 Please do not redistribute modified versions, rebrand the application, or publish your own builds as Warply.
 
-Bug reports and security reports may still be submitted through GitHub Issues.
+Non-sensitive bug reports may be submitted through GitHub Issues. For security issues, follow [SECURITY.md](SECURITY.md); never attach private configurations.
 
 ## Support
 

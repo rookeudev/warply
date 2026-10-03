@@ -39,20 +39,6 @@ export default function App() {
     about: 0,
   })
 
-  useEffect(() => {
-    let active = true
-    void invoke<AvailableUpdate | null>('check_for_update')
-      .then((update) => {
-        if (active) setUpdateVersion(update?.version ?? null)
-      })
-      .catch(() => {
-        // A missing release or offline launch should not interrupt the tunnel UI.
-      })
-    return () => {
-      active = false
-    }
-  }, [])
-
   async function checkUpdates() {
     setUpdateBusy('checking')
     setUpdateMessage(null)

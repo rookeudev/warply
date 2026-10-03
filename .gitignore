@@ -21,3 +21,7 @@ src-tauri/gen/
 .vscode/
 Thumbs.db
 Desktop.ini
+
+*.conf.dpapi
+*.profile
+*.pending

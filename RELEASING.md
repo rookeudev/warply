@@ -1,6 +1,6 @@
 # Warply releases and updates
 
-Warply checks the latest GitHub release on launch. The **About** screen can check again and install a newer version. Update packages are verified with Tauri's signing key before installation. This signature is separate from Windows Authenticode signing.
+Warply contacts GitHub only when the user selects **Check for updates** or requests installation in **Updates & about**. There is no automatic update request on launch. Update packages are verified with Tauri's signing key before installation. This signature is separate from Windows Authenticode signing.
 
 ## Release a new version
 

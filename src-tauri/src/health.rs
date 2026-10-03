@@ -113,7 +113,9 @@ pub fn start_monitor(app: tauri::AppHandle) {
     tauri::async_runtime::spawn(async move {
         loop {
             let state = app.state::<AppState>();
-            if state.quitting.load(std::sync::atomic::Ordering::SeqCst) {
+            if state.quitting.load(std::sync::atomic::Ordering::SeqCst)
+                || state.view.lock().await.status != crate::setup::SetupStatus::Ready
+            {
                 let _ = tauri::async_runtime::spawn_blocking(|| {
                     std::thread::sleep(Duration::from_secs(2))
                 })
@@ -206,7 +208,7 @@ async fn probe() -> HealthStatus {
     {
         return HealthStatus::Unavailable;
     }
-    let mut body = Vec::new();
+    let mut body = zeroize::Zeroizing::new(Vec::new());
     loop {
         match response.chunk().await {
             Ok(Some(chunk)) if body.len() + chunk.len() <= 4096 => body.extend_from_slice(&chunk),

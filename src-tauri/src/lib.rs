@@ -4,12 +4,14 @@ mod background;
 mod commands;
 mod config;
 mod elevation;
+mod file_security;
 mod health;
 mod import_dialog;
 mod installer;
 mod instance;
 mod keys;
 mod network;
+mod protection;
 mod setup;
 mod storage;
 mod system_events;
@@ -63,15 +65,15 @@ pub fn run() {
             let handle = app.handle().clone();
             background::setup(&handle)?;
             let settings = storage::load_settings().unwrap_or_default();
-            let has_config = storage::config_path().is_ok_and(|path| path.is_file());
+            let has_config = storage::profile_exists().unwrap_or(false);
             let autostart = std::env::args_os().any(|argument| argument == "--autostart");
             if (!settings.start_minimized && !autostart) || !has_config {
                 background::show(&handle);
             }
             background::start_monitor(handle.clone());
-            health::start_monitor(handle.clone());
             tauri::async_runtime::spawn(async move {
                 commands::initialize(handle.state::<setup::AppState>().inner()).await;
+                health::start_monitor(handle.clone());
                 let state = handle.state::<setup::AppState>();
                 let view = state.view.lock().await.clone();
                 if view.status != setup::SetupStatus::Ready || view.message.is_some() {

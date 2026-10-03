@@ -31,7 +31,7 @@ async fn snapshot(state: &AppState) -> Result<TunnelSnapshot, String> {
             tunnel::backend()
                 .status()
                 .map_err(|error| error.to_string())?,
-            storage::config_path()?.is_file(),
+            storage::profile_exists()?,
             tunnel::backend().wireguard_path().is_some(),
         ))
     })
@@ -80,18 +80,25 @@ pub async fn initialize(state: &AppState) {
             .await
             .map_err(|_| "Could not load Warply's settings.".to_string())??;
         state.view.lock().await.settings = settings;
-        create_or_load_profile(state).await
+        let was_running = tauri::async_runtime::spawn_blocking(storage::prepare_profile)
+            .await
+            .map_err(|_| "Could not prepare encrypted storage.".to_string())??;
+        create_or_load_profile(state).await?;
+        Ok::<_, String>(was_running)
     }
     .await;
-    if let Err(message) = result {
-        state
-            .update(SetupStatus::RegistrationError, Some(message))
-            .await;
-        return;
-    }
+    let was_running = match result {
+        Ok(was_running) => was_running,
+        Err(message) => {
+            state
+                .update(SetupStatus::RegistrationError, Some(message))
+                .await;
+            return;
+        }
+    };
     finish_installation(state).await;
     let view = state.view.lock().await.clone();
-    if view.status == SetupStatus::Ready && view.settings.auto_connect {
+    if view.status == SetupStatus::Ready && (view.settings.auto_connect || was_running) {
         state.desired_connected.store(true, Ordering::SeqCst);
         state.view.lock().await.auto_connecting = true;
         if let Err(message) = connect().await {
@@ -108,7 +115,7 @@ pub async fn initialize(state: &AppState) {
 }
 
 async fn create_or_load_profile(state: &AppState) -> Result<(), String> {
-    let exists = storage::config_path()?.is_file();
+    let exists = storage::profile_exists()?;
     state
         .update(
             if exists {
@@ -194,7 +201,7 @@ pub async fn check_wireguard(state: State<'_, AppState>) -> Result<TunnelSnapsho
         .try_lock()
         .map_err(|_| "Another operation is in progress.".to_string())?;
     if tunnel::backend().wireguard_path().is_some() {
-        if storage::config_path()?.is_file() {
+        if storage::profile_exists()? {
             state.update(SetupStatus::Ready, None).await;
         }
     } else {
@@ -215,9 +222,16 @@ pub(crate) async fn connect() -> Result<(), String> {
         if *updated != *contents {
             SecureProfileStore.save(&updated)?;
         }
-        tunnel::backend()
-            .connect(&storage::config_path()?)
-            .map_err(|error| error.to_string())
+        let backend = tunnel::backend();
+        if backend.status().map_err(|error| error.to_string())? == TunnelStatus::Connected {
+            return Ok(());
+        }
+        let path = storage::service_profile(&updated)?;
+        let result = backend.connect(&path).map_err(|error| error.to_string());
+        if result.is_err() && matches!(backend.status(), Ok(TunnelStatus::Disconnected)) {
+            storage::remove_service_profile()?;
+        }
+        result
     })
     .await
     .map_err(|_| "Could not connect the tunnel.".to_string())?
@@ -265,7 +279,8 @@ pub async fn disconnect_tunnel(state: State<'_, AppState>) -> Result<TunnelSnaps
     tauri::async_runtime::spawn_blocking(|| {
         tunnel::backend()
             .disconnect()
-            .map_err(|error| error.to_string())
+            .map_err(|error| error.to_string())?;
+        storage::remove_service_profile()
     })
     .await
     .map_err(|_| "Could not disconnect the tunnel.".to_string())??;
@@ -463,13 +478,16 @@ pub async fn export_config(state: State<'_, AppState>) -> Result<bool, String> {
         #[cfg(target_os = "windows")]
         {
             use std::os::windows::fs::OpenOptionsExt;
-            options.share_mode(0).custom_flags(0x00200000);
+            options
+                .share_mode(0)
+                .custom_flags(0x00200000)
+                .access_mode(0x40000000 | 0x00040000 | 0x80);
         }
         let mut file = options
             .open(&path)
             .map_err(|_| "Could not create the exported config.".to_string())?;
         storage::ensure_regular_file(&file)?;
-        storage::restrict_acl(&path, false)?;
+        crate::file_security::restrict(&file, false, false)?;
         file.set_len(0)
             .map_err(|_| "Could not prepare the export file.".to_string())?;
         file.write_all(contents.as_bytes())

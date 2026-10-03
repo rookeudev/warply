@@ -127,7 +127,11 @@ pub fn quit_app(app: tauri::AppHandle) {
     tauri::async_runtime::spawn(async move {
         let state = app.state::<AppState>();
         let _operation = state.operation.lock().await;
-        let result = tauri::async_runtime::spawn_blocking(|| tunnel::backend().disconnect()).await;
+        let result = tauri::async_runtime::spawn_blocking(|| {
+            tunnel::backend().disconnect().map_err(|e| e.to_string())?;
+            storage::remove_service_profile()
+        })
+        .await;
         if let Ok(Ok(())) = result {
             app.exit(0);
         } else {

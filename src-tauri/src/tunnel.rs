@@ -123,11 +123,11 @@ impl TunnelBackend for WindowsWireGuard {
     }
 
     fn wireguard_path(&self) -> Option<PathBuf> {
-        let mut program_files = ["ProgramFiles", "ProgramW6432", "ProgramFiles(x86)"]
-            .into_iter()
-            .filter_map(std::env::var_os)
-            .map(|root| PathBuf::from(root).join("WireGuard").join("wireguard.exe"));
-        program_files.find(|path| path.is_file())
+        let path = program_files_directory()
+            .ok()?
+            .join("WireGuard")
+            .join("wireguard.exe");
+        path.is_file().then_some(path)
     }
 }
 
@@ -235,15 +235,18 @@ pub(crate) fn windows_powershell() -> Command {
 }
 
 #[cfg(target_os = "windows")]
-fn command_result(output: Output, failure: TunnelError) -> Result<(), TunnelError> {
-    if output.status.success() {
+fn command_result(mut output: Output, failure: TunnelError) -> Result<(), TunnelError> {
+    use zeroize::Zeroize;
+    let success = output.status.success();
+    let denied = output.status.code() == Some(5);
+    let stderr =
+        zeroize::Zeroizing::new(String::from_utf8_lossy(&output.stderr).to_ascii_lowercase());
+    output.stdout.zeroize();
+    output.stderr.zeroize();
+    if success {
         return Ok(());
     }
-    let stderr = String::from_utf8_lossy(&output.stderr).to_ascii_lowercase();
-    if output.status.code() == Some(5)
-        || stderr.contains("access is denied")
-        || stderr.contains("administrator")
-    {
+    if denied || stderr.contains("access is denied") || stderr.contains("administrator") {
         Err(TunnelError::AdministratorRequired)
     } else {
         Err(failure)

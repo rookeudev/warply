@@ -1,4 +1,8 @@
 export const en = {
+  privacyNoCollection: 'Warply has no telemetry, analytics, ads, usage history, or crash uploads.',
+  privacyStorage: 'Your saved private configuration is encrypted by Windows. Export intentionally creates a readable file; keep it private.',
+  privacyNetwork: 'Cloudflare receives the public key during registration and handles tunnel traffic and connection checks. Updates contact GitHub only when you request a check.',
+
   settingsIntro: 'Everything you need, grouped by purpose.',
   generalMenu: 'Startup & behavior',
   generalDescription: 'Startup and window preferences.',
@@ -146,6 +150,10 @@ export type Language = 'en' | 'cs'
 export type Translator = (key: MessageKey) => string
 
 export const cs: Record<MessageKey, string> = {
+  privacyNoCollection: 'Warply nemá telemetrii, analytiku, reklamy, historii používání ani odesílání chybových hlášení.',
+  privacyStorage: 'Soukromou konfiguraci šifruje Windows. Export úmyslně vytvoří čitelný soubor; uchovávejte jej v soukromí.',
+  privacyNetwork: 'Cloudflare při registraci obdrží veřejný klíč a zpracovává provoz tunelu i kontroly připojení. GitHub kontaktujeme jen na váš pokyn ke kontrole aktualizací.',
+
   settingsIntro: 'Vše potřebné přehledně podle účelu.',
   generalMenu: 'Spouštění a chování',
   generalDescription: 'Spuštění a chování okna.',
