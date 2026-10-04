@@ -689,3 +689,8 @@ svg {
     color: HighlightText;
   }
 }
+
+.protection-notice { border: 1px solid var(--separator); padding: 10px 14px; border-radius: 12px; font-size: 12px; text-align: center; }
+.protection-notice p { margin: 0 0 8px; }
+.diagnostics { display: flex; flex-direction: column; gap: 12px; padding: 8px 0; }
+.diagnostic-report { box-sizing: border-box; width: 100%; min-height: 230px; padding: 10px; font: 12px/1.6 monospace; color: var(--text); background: var(--control); border: 1px solid var(--separator); border-radius: 8px; resize: vertical; }

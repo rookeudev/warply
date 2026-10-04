@@ -23,6 +23,7 @@ pub struct TunnelSnapshot {
     auto_connect: bool,
     settings: storage::Settings,
     poll_after_ms: u64,
+    protection: crate::guard::GuardView,
 }
 
 async fn snapshot(state: &AppState) -> Result<TunnelSnapshot, String> {
@@ -52,6 +53,7 @@ async fn snapshot(state: &AppState) -> Result<TunnelSnapshot, String> {
         auto_connect: view.settings.auto_connect,
         settings: view.settings.clone(),
         poll_after_ms: 3000,
+        protection: crate::helper::cached(),
     })
 }
 
@@ -76,6 +78,9 @@ pub async fn tunnel_snapshot(
 pub async fn initialize(state: &AppState) {
     let _operation = state.operation.lock().await;
     let result = async {
+        tauri::async_runtime::spawn_blocking(crate::helper::initialize)
+            .await
+            .map_err(|_| "Could not start the privileged helper.".to_string())??;
         let settings = tauri::async_runtime::spawn_blocking(storage::load_settings)
             .await
             .map_err(|_| "Could not load Warply's settings.".to_string())??;
@@ -168,7 +173,7 @@ async fn finish_installation(state: &AppState) {
     match consent {
         Ok(Ok(true)) => {
             state.update(SetupStatus::InstallingWireguard, None).await;
-            match installer::install().await {
+            match tauri::async_runtime::spawn_blocking(crate::helper::install_wireguard).await.unwrap_or_else(|_| Err("Could not install WireGuard.".into())) {
                 Ok(()) => state.update(SetupStatus::Ready, None).await,
                 Err(message) => state.update(SetupStatus::WireguardRequired, Some(message)).await,
             }
@@ -184,6 +189,16 @@ pub async fn retry_setup(state: State<'_, AppState>) -> Result<TunnelSnapshot, S
         .operation
         .try_lock()
         .map_err(|_| "Setup is already in progress.".to_string())?;
+    if let Err(message) = tauri::async_runtime::spawn_blocking(crate::helper::initialize)
+        .await
+        .map_err(|_| "Could not start the privileged helper.".to_string())
+        .and_then(|result| result)
+    {
+        state
+            .update(SetupStatus::RegistrationError, Some(message))
+            .await;
+        return snapshot(&state).await;
+    }
     if let Err(message) = create_or_load_profile(&state).await {
         state
             .update(SetupStatus::RegistrationError, Some(message))
@@ -222,16 +237,14 @@ pub(crate) async fn connect() -> Result<(), String> {
         if *updated != *contents {
             SecureProfileStore.save(&updated)?;
         }
-        let backend = tunnel::backend();
-        if backend.status().map_err(|error| error.to_string())? == TunnelStatus::Connected {
+        if tunnel::backend()
+            .status()
+            .map_err(|error| error.to_string())?
+            == TunnelStatus::Connected
+        {
             return Ok(());
         }
-        let path = storage::service_profile(&updated)?;
-        let result = backend.connect(&path).map_err(|error| error.to_string());
-        if result.is_err() && matches!(backend.status(), Ok(TunnelStatus::Disconnected)) {
-            storage::remove_service_profile()?;
-        }
-        result
+        crate::helper::connect(&updated, settings.kill_switch)
     })
     .await
     .map_err(|_| "Could not connect the tunnel.".to_string())?
@@ -254,7 +267,11 @@ pub async fn connect_tunnel(state: State<'_, AppState>) -> Result<TunnelSnapshot
         view.message = None;
     }
     state.health.invalidate().await;
-    let result = connect().await;
+    let result = match tauri::async_runtime::spawn_blocking(crate::helper::initialize).await {
+        Ok(Ok(_)) => connect().await,
+        Ok(Err(message)) => Err(message),
+        Err(_) => Err("Could not start the privileged helper.".into()),
+    };
     state.view.lock().await.auto_connecting = false;
     if let Err(message) = result {
         state.view.lock().await.message = Some(message.clone());
@@ -277,9 +294,7 @@ pub async fn disconnect_tunnel(state: State<'_, AppState>) -> Result<TunnelSnaps
     state.desired_connected.store(false, Ordering::SeqCst);
     state.health.invalidate().await;
     tauri::async_runtime::spawn_blocking(|| {
-        tunnel::backend()
-            .disconnect()
-            .map_err(|error| error.to_string())?;
+        crate::helper::stop(true)?;
         storage::remove_service_profile()
     })
     .await
@@ -318,6 +333,15 @@ pub(crate) async fn change_general(
         }
         "start_minimized" => settings.start_minimized = enabled,
         "close_to_tray" => settings.close_to_tray = enabled,
+        "kill_switch" => {
+            require_disconnected()?;
+            if crate::helper::cached().active {
+                return Err("Select Restore internet before changing kill switch settings.".into());
+            }
+            settings.kill_switch = enabled;
+        }
+        "notifications" => settings.notifications = enabled,
+        "automatic_update_checks" => settings.automatic_update_checks = enabled,
         _ => return Err("Unknown setting.".into()),
     }
     if let Err(error) = storage::save_settings(&settings) {
@@ -529,4 +553,22 @@ pub async fn open_wireguard_download() -> Result<(), String> {
     {
         Err("This app currently supports Windows only.".into())
     }
+}
+
+#[tauri::command]
+pub async fn restore_internet(state: State<'_, AppState>) -> Result<TunnelSnapshot, String> {
+    let consent = tauri::async_runtime::spawn_blocking(|| crate::import_dialog::confirm("Restore internet? This stops Warply and removes its kill switch protection. Traffic can then use your normal connection.")).await.map_err(|_| "Could not confirm internet recovery.")??;
+    if !consent {
+        return snapshot(&state).await;
+    }
+    state.desired_connected.store(false, Ordering::SeqCst);
+    let _operation = state.operation.lock().await;
+    state.desired_connected.store(false, Ordering::SeqCst);
+    state.health.invalidate().await;
+    let result = tauri::async_runtime::spawn_blocking(crate::helper::repair)
+        .await
+        .map_err(|_| "Could not restore internet.")?;
+    state.view.lock().await.message = result.as_ref().err().cloned();
+    result?;
+    snapshot(&state).await
 }

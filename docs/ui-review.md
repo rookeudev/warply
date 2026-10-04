@@ -39,3 +39,7 @@ The main window shows a minimal loading screen with the local logo, a spinner, a
 The NSIS post-install hook restores the all-users `Warply.lnk` Start menu entry on both fresh installs and updates, sets its app identity, and notifies the Windows shell. Manual launches always show the app; the tray-at-logon preference only affects `--autostart` launches. Portable extraction alone does not register an installed Start menu application.
 
 Manual acceptance: install the EXE, search Start for Warply, launch it with tray-at-logon enabled, and confirm the window opens. Repeat an installer update after removing its shortcut; check that uninstall removes the shortcut. Test loading-to-ready and loading-to-error, light/dark, Czech/English, and reduced motion.
+
+## 0.2.1 review
+
+Security settings, explicit protection status/Restore internet, local diagnostics, separate IPv4/IPv6 details, update opt-in, and availability banner were reviewed in English/light and Czech/dark fixtures. Diagnostics copying, default-off automatic checks, opt-in detection, and emergency recovery during a pending connection were exercised. Mocked UI tests do not establish live WFP or VPN behavior. See the Windows acceptance checklist.

@@ -1,88 +1,113 @@
+// Use the desktop shell's existing standard token. No elevated COM activation
+// or command interpreter is involved in dropping GUI privileges.
 #[cfg(target_os = "windows")]
-pub fn ensure_administrator() -> Result<bool, String> {
-    use std::{ffi::c_void, os::windows::ffi::OsStrExt};
-    #[repr(C)]
-    struct ShellExecuteInfo {
-        size: u32,
-        mask: u32,
-        window: *mut c_void,
-        verb: *const u16,
-        file: *const u16,
-        parameters: *const u16,
-        directory: *const u16,
-        show: i32,
-        instance: *mut c_void,
-        id_list: *mut c_void,
-        class: *const u16,
-        class_key: *mut c_void,
-        hot_key: u32,
-        icon: *mut c_void,
-        process: *mut c_void,
-    }
-    #[link(name = "shell32")]
-    extern "system" {
-        fn IsUserAnAdmin() -> i32;
-        fn ShellExecuteExW(info: *mut ShellExecuteInfo) -> i32;
-    }
-    #[link(name = "kernel32")]
-    extern "system" {
-        fn WaitForSingleObject(handle: *mut c_void, milliseconds: u32) -> u32;
-        fn CloseHandle(handle: *mut c_void) -> i32;
-    }
-    if unsafe { IsUserAnAdmin() } != 0 {
+pub fn ensure_unprivileged() -> Result<bool, String> {
+    use std::{os::windows::ffi::OsStrExt, ptr};
+    use windows_sys::Win32::{
+        Foundation::CloseHandle,
+        Security::{
+            GetTokenInformation, TokenElevation, TOKEN_ASSIGN_PRIMARY, TOKEN_DUPLICATE,
+            TOKEN_ELEVATION, TOKEN_QUERY,
+        },
+        System::{
+            Environment::{CreateEnvironmentBlock, DestroyEnvironmentBlock},
+            Threading::*,
+        },
+        UI::{
+            Shell::IsUserAnAdmin,
+            WindowsAndMessaging::{GetShellWindow, GetWindowThreadProcessId},
+        },
+    };
+    if unsafe { IsUserAnAdmin() } == 0 {
         return Ok(true);
     }
-    let executable = std::env::current_exe()
-        .map_err(|_| "Could not locate Warply to restart as administrator.".to_string())?;
-    let file: Vec<u16> = executable
-        .as_os_str()
-        .encode_wide()
-        .chain(Some(0))
-        .collect();
-    let verb: Vec<u16> = "runas".encode_utf16().chain(Some(0)).collect();
-    let parameters: Vec<u16> = if std::env::args_os().any(|argument| argument == "--autostart") {
-        "--autostart"
-    } else {
-        ""
-    }
-    .encode_utf16()
-    .chain(Some(0))
-    .collect();
-    let mut info = ShellExecuteInfo {
-        size: std::mem::size_of::<ShellExecuteInfo>() as u32,
-        mask: 0x40,
-        window: std::ptr::null_mut(),
-        verb: verb.as_ptr(),
-        file: file.as_ptr(),
-        parameters: parameters.as_ptr(),
-        directory: std::ptr::null(),
-        show: 1,
-        instance: std::ptr::null_mut(),
-        id_list: std::ptr::null_mut(),
-        class: std::ptr::null(),
-        class_key: std::ptr::null_mut(),
-        hot_key: 0,
-        icon: std::ptr::null_mut(),
-        process: std::ptr::null_mut(),
+    let error = || {
+        "Open Warply from a normal Windows desktop with UAC enabled so its window can run without administrator privileges.".to_string()
     };
-    if unsafe { ShellExecuteExW(&mut info) } == 0 {
-        return Err(
-            "Warply needs administrator rights. Open it again and approve the Windows prompt."
-                .into(),
-        );
+    let mut pid = 0;
+    let window = unsafe { GetShellWindow() };
+    if window.is_null() || unsafe { GetWindowThreadProcessId(window, &mut pid) } == 0 {
+        return Err(error());
     }
-    if !info.process.is_null() {
-        // Keep the original development process alive so Tauri's dev server
-        // and watcher stay available until the elevated app closes.
-        unsafe {
-            WaitForSingleObject(info.process, u32::MAX);
-            CloseHandle(info.process);
+    let process = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    if process.is_null() {
+        return Err(error());
+    }
+    let mut token = ptr::null_mut();
+    let opened = unsafe {
+        OpenProcessToken(
+            process,
+            TOKEN_QUERY | TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY,
+            &mut token,
+        )
+    } != 0;
+    unsafe {
+        CloseHandle(process);
+    }
+    if !opened {
+        return Err(error());
+    }
+    let result = (|| {
+        let mut elevation = TOKEN_ELEVATION::default();
+        let mut length = 0;
+        if unsafe {
+            GetTokenInformation(
+                token,
+                TokenElevation,
+                (&mut elevation as *mut TOKEN_ELEVATION).cast(),
+                std::mem::size_of::<TOKEN_ELEVATION>() as u32,
+                &mut length,
+            )
+        } == 0
+            || elevation.TokenIsElevated != 0
+        {
+            return Err(error());
         }
+        let path = std::env::current_exe().map_err(|_| error())?;
+        let file: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+        let mut command = vec![b'"' as u16];
+        command.extend(path.as_os_str().encode_wide());
+        command.push(b'"' as u16);
+        if std::env::args_os().any(|arg| arg == "--autostart") {
+            command.extend(" --autostart".encode_utf16());
+        }
+        command.push(0);
+        let mut environment = ptr::null_mut();
+        if unsafe { CreateEnvironmentBlock(&mut environment, token, 0) } == 0 {
+            return Err(error());
+        }
+        let startup = STARTUPINFOW {
+            cb: std::mem::size_of::<STARTUPINFOW>() as u32,
+            ..Default::default()
+        };
+        let mut child = PROCESS_INFORMATION::default();
+        let created = unsafe {
+            CreateProcessWithTokenW(
+                token,
+                LOGON_WITH_PROFILE,
+                file.as_ptr(),
+                command.as_mut_ptr(),
+                CREATE_UNICODE_ENVIRONMENT,
+                environment,
+                ptr::null(),
+                &startup,
+                &mut child,
+            )
+        } != 0;
+        unsafe {
+            DestroyEnvironmentBlock(environment);
+        }
+        if !created {
+            return Err(error());
+        }
+        unsafe {
+            CloseHandle(child.hProcess);
+            CloseHandle(child.hThread);
+        }
+        Ok(false)
+    })();
+    unsafe {
+        CloseHandle(token);
     }
-    Ok(false)
-}
-
-#[cfg(not(target_os = "windows"))]
-pub fn ensure_administrator() -> Result<bool, String> {
-    Ok(true)
+    result
 }

@@ -16,7 +16,11 @@ export type TunnelSnapshot = {
     status: 'unknown' | 'checking' | 'verified' | 'not_warp' | 'unavailable'
     duration_ms: number | null
     checked_ago_secs: number | null
+    ipv4?: string
+    ipv6?: string
+    network?: { ipv4_tunnel: boolean; ipv6_tunnel: boolean; dns_matches: boolean; other_vpn_count: number; inspection_available: boolean }
   }
+  protection?: { active: boolean }
   has_config: boolean
   wireguard_installed: boolean
   setup: SetupStatus
@@ -24,6 +28,9 @@ export type TunnelSnapshot = {
   auto_connect: boolean
   poll_after_ms?: number
   settings: {
+    kill_switch?: boolean
+    notifications?: boolean
+    automatic_update_checks?: boolean
     start_with_windows: boolean
     start_minimized: boolean
     close_to_tray: boolean
@@ -41,6 +48,7 @@ export function useTunnel() {
   const [pollError, setPollError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const busyRef = useRef(false)
+  const restorePending = useRef(false)
   const requestId = useRef(0)
   const appliedId = useRef(0)
   const pollDelay = useRef(3000)
@@ -93,7 +101,7 @@ export function useTunnel() {
     activity: string,
     args?: Record<string, unknown>,
   ) {
-    if (busyRef.current) return null
+    if (busyRef.current || restorePending.current) return null
     busyRef.current = true
     setBusy(activity)
     setError(null)
@@ -112,9 +120,23 @@ export function useTunnel() {
       return null
     } finally {
       busyRef.current = false
-      setBusy(null)
+      if (!restorePending.current) setBusy(null)
       void refresh()
     }
+  }
+
+  async function restoreInternet() {
+    if (restorePending.current) return
+    restorePending.current = true
+    const previousActivity = busy
+    setBusy('restore')
+    setError(null)
+    try {
+      const next = await invoke<TunnelSnapshot>('restore_internet')
+      applySnapshot(next, ++requestId.current)
+      setError(null)
+    } catch (cause) { setError(String(cause)) }
+    finally { restorePending.current = false; setBusy(busyRef.current ? previousActivity : null); void refresh() }
   }
 
   async function importConfig() {
@@ -146,6 +168,7 @@ export function useTunnel() {
     importConfig,
     exportConfig,
     toggle,
+    restoreInternet,
     retrySetup: () => run('retry_setup', 'setup'),
     checkWireGuard: () => run('check_wireguard', 'check'),
     recheckConnection: () => run('recheck_connection', 'health'),
@@ -153,7 +176,7 @@ export function useTunnel() {
     setAutoConnect: (enabled: boolean) =>
       run('set_auto_connect', 'settings', { enabled }),
     setGeneral: (
-      name: 'start_with_windows' | 'start_minimized' | 'close_to_tray',
+      name: 'start_with_windows' | 'start_minimized' | 'close_to_tray' | 'kill_switch' | 'notifications' | 'automatic_update_checks',
       enabled: boolean,
     ) => run('set_general_setting', 'settings', { name, enabled }),
     setNetwork: (dns: string, customDns: string, endpoint: string) =>

@@ -43,7 +43,7 @@ pub fn validate(settings: &Settings) -> Result<Option<String>, String> {
 }
 
 // Operates entirely in Rust. Neither original nor rewritten key material
-// crosses IPC; only the explicitly selected public network fields do.
+// crosses webview IPC; only the explicitly selected public network fields do.
 pub fn apply(contents: &str, settings: &Settings) -> Result<String, String> {
     config::validate_import(contents).map_err(|error| error.to_string())?;
     let dns = validate(settings)?;
@@ -79,6 +79,69 @@ pub fn apply(contents: &str, settings: &Settings) -> Result<String, String> {
     }
     config::validate_import(&output).map_err(|error| error.to_string())?;
     Ok(std::mem::take(&mut *output))
+}
+
+/// Validated, non-secret values only. Never use this to expose key fields.
+pub fn field<'a>(contents: &'a str, name: &str) -> Option<&'a str> {
+    contents
+        .lines()
+        .filter_map(|line| line.split_once('='))
+        .find_map(|(key, value)| (key.trim() == name).then_some(value.trim()))
+}
+
+pub fn resolve_endpoint(
+    contents: &str,
+    blocked: bool,
+) -> Result<zeroize::Zeroizing<String>, String> {
+    use std::net::{SocketAddr, ToSocketAddrs};
+    let endpoint = field(contents, "Endpoint").ok_or("Missing endpoint.")?;
+    let cache = crate::storage::machine_folder()?.join("endpoint.json");
+    crate::storage::reject_links(&cache)?;
+    let resolved = if let Ok(address) = endpoint.parse::<SocketAddr>() {
+        address
+    } else if blocked {
+        let file = std::fs::File::open(&cache).map_err(|_| {
+            "No cached endpoint while internet is blocked. Select Restore internet, then reconnect."
+        })?;
+        crate::storage::ensure_regular_file(&file)?;
+        let previous: (String, String) =
+            serde_json::from_str(&crate::storage::read_small_file(file)?)
+                .map_err(|_| "Invalid cached endpoint.")?;
+        if previous.0 != endpoint {
+            return Err(
+                "Endpoint changed while internet is blocked. Select Restore internet first.".into(),
+            );
+        }
+        previous
+            .1
+            .parse::<SocketAddr>()
+            .map_err(|_| "Invalid cached endpoint.")?
+    } else {
+        endpoint
+            .to_socket_addrs()
+            .map_err(|_| {
+                "Could not resolve the WireGuard endpoint. Check your internet connection."
+            })?
+            .find(|address| address.is_ipv4())
+            .ok_or("No IPv4 endpoint address was found.")?
+    };
+    let bytes = serde_json::to_vec(&(endpoint, resolved.to_string()))
+        .map_err(|_| "Could not save the endpoint cache.")?;
+    crate::storage::secure_write_with_scope(&cache, &bytes, true)?;
+    crate::file_security::restrict_path(&crate::storage::machine_folder()?, true, true)?;
+    let mut result = zeroize::Zeroizing::new(String::with_capacity(contents.len() + 64));
+    for line in contents.lines() {
+        if line
+            .split_once('=')
+            .is_some_and(|(key, _)| key.trim() == "Endpoint")
+        {
+            result.push_str(&format!("Endpoint = {resolved}"));
+        } else {
+            result.push_str(line);
+        }
+        result.push('\n');
+    }
+    Ok(result)
 }
 
 #[cfg(test)]

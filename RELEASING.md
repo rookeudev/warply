@@ -1,6 +1,6 @@
 # Warply releases and updates
 
-Warply contacts GitHub only when the user selects **Check for updates** or requests installation in **Updates & about**. There is no automatic update request on launch. Update packages are verified with Tauri's signing key before installation. This signature is separate from Windows Authenticode signing.
+Warply contacts GitHub for explicit update checks/installations, or at most once per 24 hours when the user opts into automatic checks. Automatic checks are disabled by default and never install updates without confirmation. Update packages are verified with Tauri's signing key before installation. This signature is separate from Windows Authenticode signing.
 
 ## Release a new version
 

@@ -20,9 +20,10 @@ import SettingsList from './SettingsList'
 import Toggle from './Toggle'
 import NetworkSettings from './NetworkSettings'
 import ConnectionDetails from './ConnectionDetails'
+import Diagnostics from './Diagnostics'
 
 export type SettingsSection =
-  'overview' | 'general' | 'network' | 'appearance' | 'advanced'
+  'overview' | 'general' | 'network' | 'security' | 'appearance' | 'advanced'
 type Props = {
   controls: TunnelControls
   appearance: AppearanceControls
@@ -45,6 +46,7 @@ export default function Settings({
   const locked = !!busy || setupBusy
   const disconnected = snapshot?.status === 'disconnected'
   const menu = [
+    { id: 'security', title: t('securityMenu'), description: t('securityDescription'), Icon: Shield },
     {
       id: 'general',
       title: t('generalMenu'),
@@ -174,7 +176,26 @@ export default function Settings({
           </SettingsList>
         </>
       )}
-      {section === 'appearance' && (
+      {section === 'security' && <>
+        <p className="page-intro">{t('securityDescription')}</p>
+        <SettingsList title={t('killSwitch')}>
+          <SettingRow label={t('killSwitch')}>
+            <Toggle checked={snapshot?.settings.kill_switch ?? false} disabled={locked || !disconnected || !!snapshot?.protection?.active} label={t('killSwitch')} onChange={(enabled) => void controls.setGeneral('kill_switch', enabled)} />
+          </SettingRow>
+          <p className="setting-description">{t('killSwitchDescription')}</p>
+          {snapshot?.protection?.active && <p className="notice" role="status">{t('protectionActive')}</p>}
+          <button type="button" className="action-row" disabled={busy === 'restore'} onClick={() => void controls.restoreInternet()}>
+            <span className="setting-copy"><span className="setting-label">{t('restoreInternet')}</span><span className="setting-description">{t('restoreDescription')}</span></span>
+          </button>
+        </SettingsList>
+        <SettingsList title={t('general')}>
+          <SettingRow label={t('notifications')}><Toggle checked={snapshot?.settings.notifications ?? true} disabled={locked} label={t('notifications')} onChange={(enabled) => void controls.setGeneral('notifications', enabled)} /></SettingRow>
+          <SettingRow label={t('automaticUpdateChecks')}><Toggle checked={snapshot?.settings.automatic_update_checks ?? false} disabled={locked} label={t('automaticUpdateChecks')} onChange={(enabled) => void controls.setGeneral('automatic_update_checks', enabled)} /></SettingRow>
+          <p className="setting-description">{t('automaticUpdatesDescription')}</p>
+        </SettingsList>
+        <Diagnostics t={t} />
+      </>}
+      {section === 'appearance'  && (
         <>
           <p className="page-intro">{t('appearanceDescription')}</p>
           <SettingsList title={t('appearance')}>

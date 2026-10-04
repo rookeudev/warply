@@ -90,6 +90,20 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKey)
   }, [view, aboutReturn, settingsSection])
 
+  useEffect(() => {
+    if (!snapshot?.settings.automatic_update_checks || snapshot.setup !== 'ready') return
+    let stopped = false
+    async function check() {
+      try {
+        const update = await invoke<AvailableUpdate | null>('automatic_update_check')
+        if (!stopped && update) setUpdateVersion(update.version)
+      } catch { /* Background failures stay quiet; manual checks show an error. */ }
+    }
+    const timer = window.setTimeout(() => void check(), 5000)
+    const interval = window.setInterval(() => void check(), 3600000)
+    return () => { stopped = true; window.clearTimeout(timer); window.clearInterval(interval) }
+  }, [snapshot?.settings.automatic_update_checks, snapshot?.setup])
+
   function navigate(next: View) {
     scrollPositions.current[view] = content.current?.scrollTop ?? 0
     setView(next)
@@ -228,6 +242,8 @@ export default function App() {
                           ? 'generalMenu'
                           : settingsSection === 'network'
                             ? 'networkMenu'
+                            : settingsSection === 'security'
+                              ? 'securityMenu'
                             : settingsSection === 'advanced'
                               ? 'advancedMenu'
                               : 'appearance',
@@ -258,6 +274,11 @@ export default function App() {
               secondary={secondary}
               error={failed && !connecting}
             />
+            {snapshot?.protection?.active && <div className="protection-notice" role="status">
+              <p>{t('protectionActive')}</p>
+              <button type="button" className="text-button" disabled={busy === 'restore'} onClick={() => void controls.restoreInternet()}>{t('restoreInternet')}</button>
+            </div>}
+            {updateVersion && <button type="button" className="text-button" onClick={openAbout}>{t('updateAvailable')} {updateVersion}</button>}
             {setup === 'ready' && (
               <ConnectionDetails
                 snapshot={snapshot}

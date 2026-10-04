@@ -79,6 +79,14 @@ export default function ConnectionDetails({
               </dd>
             </div>
           )}
+        {detailed && snapshot?.health.network && <>
+          <div><dt>{t('routeV4')}</dt><dd>{!uncertain && snapshot.health.network.ipv4_tunnel ? t('tunnelRoute') : t('notVerified')}</dd></div>
+          <div><dt>{t('routeV6')}</dt><dd>{!uncertain && snapshot.health.network.ipv6_tunnel ? t('tunnelRoute') : t('notVerified')}</dd></div>
+          <div><dt>{t('dnsCheck')}</dt><dd>{!uncertain && snapshot.health.network.dns_matches ? t('dnsConfigured') : t('notVerified')}</dd></div>
+          <div><dt>IPv4 WARP</dt><dd>{!uncertain && snapshot.health.ipv4 === 'verified' ? t('warpVerified') : t('notVerified')}</dd></div>
+          <div><dt>IPv6 WARP</dt><dd>{!uncertain && snapshot.health.ipv6 === 'verified' ? t('warpVerified') : t('notVerified')}</dd></div>
+          <div><dt>{t('otherVpns')}</dt><dd>{uncertain || !snapshot.health.network.inspection_available ? t('notChecked') : snapshot.health.network.other_vpn_count}</dd></div>
+        </>}
       </dl>
       {detailed && (
         <p className="setting-description">{t('healthExplanation')}</p>

@@ -21,7 +21,7 @@ $name='Warply-'+$sid
 if ($env:WARPLY_AUTOSTART -eq '1') {
   $action=New-ScheduledTaskAction -Execute $env:WARPLY_EXECUTABLE -Argument '--autostart'
   $trigger=New-ScheduledTaskTrigger -AtLogOn -User $sid
-  $principal=New-ScheduledTaskPrincipal -UserId $sid -LogonType Interactive -RunLevel Highest
+  $principal=New-ScheduledTaskPrincipal -UserId $sid -LogonType Interactive -RunLevel Limited
   $settings=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
   Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
 } else {
@@ -44,4 +44,27 @@ if ($env:WARPLY_AUTOSTART -eq '1') {
 #[cfg(not(target_os = "windows"))]
 pub fn set_enabled(_: bool) -> Result<(), String> {
     Err("This app currently supports Windows only.".into())
+}
+
+#[cfg(target_os = "windows")]
+pub fn migrate() -> Result<(), String> {
+    let executable = std::env::current_exe().map_err(|_| "Could not locate Warply.")?;
+    let script = r#"$ErrorActionPreference='Stop'
+Get-ScheduledTask | Where-Object { $_.TaskName -like 'Warply-S-1-5-*' -and $_.Actions.Count -eq 1 -and $_.Actions[0].Execute -eq $env:WARPLY_EXECUTABLE -and $_.Actions[0].Arguments -eq '--autostart' } | ForEach-Object {
+  if ($_.Principal.RunLevel -eq 'Highest') {
+    $_.Principal.RunLevel='Limited'
+    Register-ScheduledTask -TaskName $_.TaskName -InputObject $_ -Force | Out-Null
+  }
+}
+"#;
+    let result = crate::tunnel::windows_powershell()
+        .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .env("WARPLY_EXECUTABLE", executable)
+        .status()
+        .map_err(|_| "Could not migrate startup permissions.")?;
+    if result.success() {
+        Ok(())
+    } else {
+        Err("Could not migrate startup permissions.".into())
+    }
 }

@@ -35,11 +35,13 @@ Cloudflare WARP is a free service that encrypts your internet traffic. Setting i
 - **Automatic setup.** Creates a free WARP account on first launch. No sign-up, no files to import.
 - **Runs in the background.** Sits in the system tray and can start with Windows.
 - **Reconnects by itself** after sleep or a network change.
-- **Verified status.** A running WireGuard service and a successful WARP check are shown separately.
+- **Verified status.** Separate IPv4/IPv6 WARP checks, selected routes, DNS configuration, and VPN conflict checks; a running service alone never shows green.
+- **Optional persistent kill switch.** Keeps ordinary internet traffic blocked during recovery, crashes, and reboot, with an explicit Restore internet action. See the security notes for permitted transport/network exceptions.
+- **Local diagnostics.** Copy a report without keys, IP addresses, usernames, or automatic uploads.
 - **Simple loading screen.** Logo and status while automatic setup starts; errors open the normal recovery screen.
 - **Start menu.** The installer creates a searchable Warply shortcut. Manual launches open the window even when Windows logon is set to start in the tray.
-- **Organized settings.** Startup, connection, appearance, account, and updates have their own sections.
-- **Signed updates.** Check for new releases and install them from the app.
+- **Organized settings.** Startup, connection, security, appearance, account, and updates have their own sections.
+- **Signed updates.** Check manually or opt into daily checks; installation requires confirmation.
 - **Private.** No telemetry, analytics, usage history, crash uploads, or Warply server. Your private key stays on your PC. [Privacy details](docs/privacy.md).
 
 ## Download
@@ -48,14 +50,14 @@ Cloudflare WARP is a free service that encrypts your internet traffic. Setting i
 2. Run it. Warply offers to install WireGuard if you don't have it.
 3. Open Warply and press the button.
 
-Works on Windows 10 and 11. Administrator rights are needed to create the network tunnel.
+Works on Windows 10 and 11. The interface runs as your normal Windows user. A separate privileged helper needs one UAC approval per app session to control the tunnel.
 
 ## How it works
 
 1. On first launch, Warply creates a WireGuard key pair on your PC and registers a free WARP account with Cloudflare. Registration sends the public key and fixed protocol fields; the private key is never uploaded.
 2. It builds a standard WireGuard configuration and stores it encrypted with Windows DPAPI and restricted file permissions. The service receives a separate encrypted copy; normal connection creates no plaintext config.
 3. The button starts or stops that tunnel through the official WireGuard service for Windows.
-4. Rust verifies an HTTPS request through the tunnel address every 30 seconds. A running service alone does not show a verified connection.
+4. Rust verifies separate IPv4 and IPv6 HTTPS requests through the tunnel addresses every 30 seconds and inspects selected local routes/DNS. A running service alone does not show a verified connection.
 
 ## What WARP does and doesn't do
 
@@ -69,7 +71,7 @@ Works on Windows 10 and 11. Administrator rights are needed to create the networ
 No. Warply offers to install it the first time.
 
 **Why does it ask for administrator rights?**
-Creating a network tunnel on Windows requires them.
+A separate helper needs them to control the tunnel and optional firewall protection. The interface stays unelevated, and toggles reuse the approved helper.
 
 **Will it change my country?**
 No. See [What WARP does and doesn't do](#what-warp-does-and-doesnt-do).
@@ -97,7 +99,7 @@ Release installers require updater signing. See [RELEASING.md](RELEASING.md). In
 ## Good to know
 
 - Warply uses Cloudflare's unofficial registration API, which Cloudflare may change at any time.
-- Connection status separates the service state from a recent WARP HTTPS check. It does not certify every application, IPv6 route, or DNS leak prevention.
+- Connection status separates the service state from a recent WARP HTTPS check. It does not certify every application, all destinations, or external DNS leak prevention.
 - Speed and availability of free WARP are controlled by Cloudflare.
 - Security details and remaining boundaries are in the [security notes](docs/security-model.md).
 
@@ -124,3 +126,7 @@ Warply is provided under the **Warply Source-Available License**.
 You may view and use the source code for personal, non-commercial purposes. You may not redistribute the source code, publish modified versions, create competing public builds, sell the software, or remove copyright and attribution notices without permission from the author.
 
 See [LICENSE](LICENSE) for the complete terms.
+
+## Windows acceptance tests
+
+See [the 0.2.1 manual test checklist](docs/0.2.1-test-checklist.md), including persistent protection, recovery, updates, and privilege isolation.

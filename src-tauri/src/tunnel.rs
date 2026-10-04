@@ -9,7 +9,6 @@ use std::time::Duration;
 use serde::Serialize;
 use thiserror::Error;
 
-const TUNNEL_NAME: &str = "warply";
 const SERVICE_NAME: &str = "WireGuardTunnel$warply";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -102,20 +101,27 @@ impl TunnelBackend for WindowsWireGuard {
     }
 
     fn disconnect(&self) -> Result<(), TunnelError> {
-        if self.status()? == TunnelStatus::Disconnected {
+        // Emergency shutdown must still work when the WireGuard executable is missing.
+        let output = hidden_command(system_executable("sc.exe"))
+            .args(["stop", SERVICE_NAME])
+            .output()
+            .map_err(|_| TunnelError::DisconnectFailed)?;
+        if output.status.code() == Some(1060) {
             return Ok(());
         }
-        let executable = self.wireguard_path().ok_or(TunnelError::WireGuardMissing)?;
-        crate::installer::verify_wireguard(&executable)
-            .map_err(|_| TunnelError::UntrustedExecutable)?;
-        let output = hidden_command(&executable)
-            .args(["/uninstalltunnelservice", TUNNEL_NAME])
-            .output()
-            .map_err(|_| TunnelError::WireGuardMissing)?;
-        command_result(output, TunnelError::DisconnectFailed)?;
+        if output.status.code() != Some(1062) {
+            command_result(output, TunnelError::DisconnectFailed)?;
+        }
         for _ in 0..40 {
             if self.status()? == TunnelStatus::Disconnected {
-                return Ok(());
+                let output = hidden_command(system_executable("sc.exe"))
+                    .args(["delete", SERVICE_NAME])
+                    .output()
+                    .map_err(|_| TunnelError::DisconnectFailed)?;
+                if matches!(output.status.code(), Some(1060 | 1072)) {
+                    return Ok(());
+                }
+                return command_result(output, TunnelError::DisconnectFailed);
             }
             thread::sleep(Duration::from_millis(250));
         }

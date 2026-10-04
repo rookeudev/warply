@@ -4,7 +4,6 @@ use serde::Serialize;
 use tauri::{async_runtime::Mutex, Manager};
 
 use crate::{
-    config,
     setup::AppState,
     storage::{ProfileStore, SecureProfileStore},
     tunnel::{self, TunnelStatus},
@@ -29,6 +28,9 @@ pub struct HealthView {
     pub status: HealthStatus,
     pub duration_ms: Option<u64>,
     pub checked_ago_secs: Option<u64>,
+    pub ipv4: HealthStatus,
+    pub ipv6: HealthStatus,
+    pub network: crate::diagnostics::NetworkView,
 }
 
 struct Cache {
@@ -36,6 +38,9 @@ struct Cache {
     duration_ms: Option<u64>,
     checked_at: Option<Instant>,
     revision: u64,
+    ipv4: HealthStatus,
+    ipv6: HealthStatus,
+    network: crate::diagnostics::NetworkView,
 }
 
 impl Default for Cache {
@@ -45,6 +50,9 @@ impl Default for Cache {
             duration_ms: None,
             checked_at: None,
             revision: 0,
+            ipv4: HealthStatus::Unknown,
+            ipv6: HealthStatus::Unknown,
+            network: Default::default(),
         }
     }
 }
@@ -55,6 +63,9 @@ impl Cache {
         self.status = HealthStatus::Unknown;
         self.duration_ms = None;
         self.checked_at = None;
+        self.ipv4 = HealthStatus::Unknown;
+        self.ipv6 = HealthStatus::Unknown;
+        self.network = Default::default();
     }
 
     fn finish(&mut self, revision: u64, status: HealthStatus, duration_ms: Option<u64>) {
@@ -94,6 +105,9 @@ impl HealthMonitor {
                 status: HealthStatus::Unknown,
                 duration_ms: None,
                 checked_ago_secs: None,
+                ipv4: HealthStatus::Unknown,
+                ipv6: HealthStatus::Unknown,
+                network: Default::default(),
             };
         }
         let age = cache.checked_at.map(|at| at.elapsed().as_secs());
@@ -105,6 +119,21 @@ impl HealthMonitor {
             },
             duration_ms: cache.duration_ms,
             checked_ago_secs: age,
+            ipv4: if age.is_some_and(|age| age >= INTERVAL.as_secs()) {
+                HealthStatus::Checking
+            } else {
+                cache.ipv4
+            },
+            ipv6: if age.is_some_and(|age| age >= INTERVAL.as_secs()) {
+                HealthStatus::Checking
+            } else {
+                cache.ipv6
+            },
+            network: if age.is_some_and(|age| age >= INTERVAL.as_secs()) {
+                Default::default()
+            } else {
+                cache.network.clone()
+            },
         }
     }
 }
@@ -129,15 +158,16 @@ pub fn start_monitor(app: tauri::AppHandle) {
                 let revision = {
                     let mut cache = state.health.0.lock().await;
                     if cache.checked_at.is_none_or(|at| at.elapsed() >= INTERVAL) {
+                        let previous = cache.status;
                         cache.status = HealthStatus::Checking;
-                        Some(cache.revision)
+                        Some((cache.revision, previous))
                     } else {
                         None
                     }
                 };
-                if let Some(revision) = revision {
+                if let Some((revision, previous)) = revision {
                     let started = Instant::now();
-                    let result = probe().await;
+                    let (result, ipv4, ipv6, network) = probe().await;
                     // A proof belongs to one tunnel session, never to a later reconnect.
                     let still_running =
                         tauri::async_runtime::spawn_blocking(|| tunnel::backend().status()).await;
@@ -148,12 +178,20 @@ pub fn start_monitor(app: tauri::AppHandle) {
                             } else {
                                 None
                             };
-                        state
-                            .health
-                            .0
-                            .lock()
-                            .await
-                            .finish(revision, result, latency);
+                        let mut cache = state.health.0.lock().await;
+                        let notify = cache.revision == revision
+                            && previous == HealthStatus::Verified
+                            && result != HealthStatus::Verified;
+                        if cache.revision == revision {
+                            cache.finish(revision, result, latency);
+                            cache.ipv4 = ipv4;
+                            cache.ipv6 = ipv6;
+                            cache.network = network;
+                        }
+                        drop(cache);
+                        if notify {
+                            crate::background::notify_unverified(&state.view.lock().await.settings);
+                        }
                     } else {
                         state.health.invalidate().await;
                     }
@@ -168,31 +206,98 @@ pub fn start_monitor(app: tauri::AppHandle) {
     });
 }
 
-async fn probe() -> HealthStatus {
-    // Keep keys out of IPC and logs; only the tunnel source IP leaves this block.
-    let address = tauri::async_runtime::spawn_blocking(|| {
-        let contents =
-            zeroize::Zeroizing::new(SecureProfileStore.load()?.ok_or("Missing profile")?);
-        let address = config::tunnel_source_address(&contents).map_err(|_| "Invalid profile".to_string())?;
-        #[cfg(target_os = "windows")]
-        {
-            // Verify ownership of the source address by Warply's adapter. Never
-            // fall back to an unbound request on another network interface.
-            let output = tunnel::windows_powershell()
-                .args(["-NoProfile", "-NonInteractive", "-Command", "$ErrorActionPreference='Stop'; try { Get-NetIPAddress -InterfaceAlias 'warply' -AddressState Preferred | ForEach-Object { [Console]::WriteLine($_.IPAddress) } } catch { exit 1 }"])
-                .output().map_err(|_| "Could not inspect the tunnel adapter".to_string())?;
-            if !output.status.success() || !String::from_utf8_lossy(&output.stdout).lines().any(|line| line.trim().parse::<std::net::IpAddr>().ok() == Some(address)) {
-                return Err("The tunnel address is not active on Warply's adapter".to_string());
-            }
+async fn probe() -> (
+    HealthStatus,
+    HealthStatus,
+    HealthStatus,
+    crate::diagnostics::NetworkView,
+) {
+    let evidence = tauri::async_runtime::spawn_blocking(|| {
+        let contents = zeroize::Zeroizing::new(SecureProfileStore.load()?.ok_or("Missing profile")?);
+        let preferred = crate::config::tunnel_source_address(&contents).map_err(|_| "Invalid tunnel address")?;
+        let mut addresses: Vec<std::net::IpAddr> = crate::network::field(&contents, "Address").ok_or("Missing address")?.split(',').filter_map(|item| item.trim().split('/').next()?.parse().ok()).collect();
+        addresses.sort_by_key(|address| *address != preferred);
+        let network = crate::diagnostics::inspect()?;
+        // Ownership checks precede all source-bound requests. No unbound fallback.
+        let output = tunnel::windows_powershell().args(["-NoProfile", "-NonInteractive", "-Command", "$ErrorActionPreference='Stop'; Get-NetIPAddress -InterfaceAlias 'warply' -AddressState Preferred | ForEach-Object { [Console]::WriteLine($_.IPAddress) }"]).output().map_err(|_| "Could not inspect the tunnel adapter")?;
+        if !output.status.success() { return Err("Could not inspect the tunnel adapter".into()); }
+        let active: Vec<std::net::IpAddr> = String::from_utf8_lossy(&output.stdout).lines().filter_map(|line| line.trim().parse().ok()).collect();
+        Ok::<_, String>((addresses.into_iter().filter(|ip| active.contains(ip)).collect::<Vec<_>>(), network))
+    }).await;
+    let Ok(Ok((addresses, network))) = evidence else {
+        return (
+            HealthStatus::Unavailable,
+            HealthStatus::Unavailable,
+            HealthStatus::Unavailable,
+            Default::default(),
+        );
+    };
+    let ipv4 = if network.ipv4_tunnel {
+        if let Some(address) = addresses.iter().find(|ip| ip.is_ipv4()) {
+            probe_address(*address).await
+        } else {
+            HealthStatus::Unavailable
         }
-        Ok::<_, String>(address)
+    } else {
+        HealthStatus::Unavailable
+    };
+    let ipv6 = if network.ipv6_tunnel {
+        if let Some(address) = addresses.iter().find(|ip| ip.is_ipv6()) {
+            probe_address(*address).await
+        } else {
+            HealthStatus::Unavailable
+        }
+    } else {
+        HealthStatus::Unavailable
+    };
+    (combined_status(ipv4, ipv6, &network), ipv4, ipv6, network)
+}
+
+fn combined_status(
+    ipv4: HealthStatus,
+    ipv6: HealthStatus,
+    network: &crate::diagnostics::NetworkView,
+) -> HealthStatus {
+    if ipv4 == HealthStatus::NotWarp || ipv6 == HealthStatus::NotWarp {
+        return HealthStatus::NotWarp;
+    }
+    if ipv4 == HealthStatus::Verified
+        && ipv6 == HealthStatus::Verified
+        && network.inspection_available
+        && network.ipv4_tunnel
+        && network.ipv6_tunnel
+        && network.dns_matches
+        && network.other_vpn_count == 0
+    {
+        HealthStatus::Verified
+    } else {
+        HealthStatus::Unavailable
+    }
+}
+
+async fn probe_address(address: std::net::IpAddr) -> HealthStatus {
+    // Restrict every remote socket to the source address family. Hyper's bind
+    // setting alone permits an unbound socket of the other family.
+    let resolved = tauri::async_runtime::spawn_blocking(move || {
+        use std::net::ToSocketAddrs;
+        ("www.cloudflare.com", 443)
+            .to_socket_addrs()
+            .map(|addresses| {
+                addresses
+                    .filter(|remote| remote.is_ipv4() == address.is_ipv4())
+                    .collect::<Vec<_>>()
+            })
     })
     .await;
-    let Ok(Ok(address)) = address else {
+    let Ok(Ok(resolved)) = resolved else {
         return HealthStatus::Unavailable;
     };
+    if resolved.is_empty() {
+        return HealthStatus::Unavailable;
+    }
     let Ok(client) = reqwest::Client::builder()
         .local_address(address)
+        .resolve_to_addrs("www.cloudflare.com", &resolved)
         .no_proxy()
         .https_only(true)
         .redirect(reqwest::redirect::Policy::none())
@@ -237,6 +342,52 @@ fn parse_trace(body: &str) -> HealthStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn dual_stack_proof_rejects_partial_routes_dns_mismatch_and_other_vpn() {
+        let mut network = crate::diagnostics::NetworkView {
+            inspection_available: true,
+            ipv4_tunnel: true,
+            ipv6_tunnel: true,
+            dns_matches: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            combined_status(HealthStatus::Verified, HealthStatus::Verified, &network),
+            HealthStatus::Verified
+        );
+        for status in [
+            HealthStatus::Unknown,
+            HealthStatus::Checking,
+            HealthStatus::Unavailable,
+        ] {
+            assert_ne!(
+                combined_status(HealthStatus::Verified, status, &network),
+                HealthStatus::Verified
+            );
+        }
+        network.ipv6_tunnel = false;
+        assert_ne!(
+            combined_status(HealthStatus::Verified, HealthStatus::Verified, &network),
+            HealthStatus::Verified
+        );
+        network.ipv6_tunnel = true;
+        network.dns_matches = false;
+        assert_ne!(
+            combined_status(HealthStatus::Verified, HealthStatus::Verified, &network),
+            HealthStatus::Verified
+        );
+        network.dns_matches = true;
+        network.other_vpn_count = 1;
+        assert_ne!(
+            combined_status(HealthStatus::Verified, HealthStatus::Verified, &network),
+            HealthStatus::Verified
+        );
+        assert_eq!(
+            combined_status(HealthStatus::NotWarp, HealthStatus::Verified, &network),
+            HealthStatus::NotWarp
+        );
+    }
+
     #[test]
     fn only_an_unambiguous_warp_trace_is_verified() {
         assert_eq!(

@@ -181,3 +181,20 @@ pub fn rename_held(file: &std::fs::File, destination: &std::path::Path) -> Resul
         Ok(())
     }
 }
+pub fn restrict_path(path: &std::path::Path, folder: bool, service: bool) -> Result<(), String> {
+    crate::storage::reject_links(path)?;
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        options
+            .access_mode(0x00040000 | 0x80)
+            .share_mode(1)
+            .custom_flags(0x00200000 | if folder { 0x02000000 } else { 0 });
+    }
+    let file = options
+        .open(path)
+        .map_err(|_| "Could not secure protected storage.")?;
+    restrict(&file, folder, service)
+}

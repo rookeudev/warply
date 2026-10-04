@@ -4,7 +4,7 @@ use serde::Serialize;
 use tauri::Manager;
 use tauri_plugin_updater::UpdaterExt;
 
-use crate::{setup::AppState, tunnel};
+use crate::setup::AppState;
 
 #[derive(Serialize)]
 pub struct AvailableUpdate {
@@ -111,18 +111,28 @@ pub async fn install_update(app: tauri::AppHandle) -> Result<bool, String> {
 
     // Only interrupt an active tunnel after the update has been downloaded
     // and its Tauri signature has been verified.
-    state.desired_connected.store(false, Ordering::SeqCst);
+    let reconnect = state.desired_connected.swap(false, Ordering::SeqCst);
     tauri::async_runtime::spawn_blocking(|| {
-        tunnel::backend().disconnect().map_err(|e| e.to_string())?;
+        crate::helper::stop(true)?;
         crate::storage::remove_service_profile()
     })
     .await
     .map_err(|_| "Could not stop the tunnel before updating.".to_string())?
     .map_err(|_| "Could not stop the tunnel before updating.".to_string())?;
 
-    update
-        .install(bytes)
-        .map_err(|_| "The update installer could not start. Try again later.".to_string())?;
+    if update.install(bytes).is_err() {
+        if reconnect {
+            state.desired_connected.store(true, Ordering::SeqCst);
+            state.health.invalidate().await;
+            if crate::commands::connect().await.is_err() {
+                state.view.lock().await.message = Some("The update installer did not start and reconnect failed. Select Connect or Restore internet.".into());
+            }
+        }
+        return Err(
+            "The update installer could not start. Your profile was preserved. Try again later."
+                .into(),
+        );
+    }
     app.restart();
 }
 
@@ -156,4 +166,33 @@ mod tests {
             &updater_http::Url::parse("https://example.com").expect("url")
         ));
     }
+}
+
+#[tauri::command]
+pub async fn automatic_update_check(
+    app: tauri::AppHandle,
+) -> Result<Option<AvailableUpdate>, String> {
+    let state = app.state::<AppState>();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| "Could not read the clock.")?
+        .as_secs();
+    {
+        let _operation = state
+            .operation
+            .try_lock()
+            .map_err(|_| "Another operation is in progress.")?;
+        let mut view = state.view.lock().await;
+        if view.status != crate::setup::SetupStatus::Ready
+            || !view.settings.automatic_update_checks
+            || now.saturating_sub(view.settings.last_update_check) < 86400
+        {
+            return Ok(None);
+        }
+        let mut settings = view.settings.clone();
+        settings.last_update_check = now;
+        crate::storage::save_settings(&settings)?;
+        view.settings = settings;
+    }
+    check_for_update(app).await
 }

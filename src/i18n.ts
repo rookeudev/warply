@@ -1,4 +1,33 @@
 export const en = {
+  securityMenu: "Protection & recovery",
+  securityDescription: "Persistent protection, notifications, and local diagnostics.",
+  killSwitch: "Persistent kill switch",
+  killSwitchDescription: "Block traffic outside Warply from Connect until OFF. Survives an app crash and restart. Only loopback, WireGuard transport, DHCP and IPv6 neighbor discovery are exempt.",
+  protectionActive: "Kill switch active · traffic outside Warply is blocked",
+  restoreInternet: "Restore internet",
+  restoreDescription: "Stops Warply and removes its own protection rules. Your normal connection can then carry traffic.",
+  notifications: "Connection notifications",
+  automaticUpdateChecks: "Check for updates automatically",
+  automaticUpdatesDescription: "Optional GitHub check, at most once a day while Warply is open. Installation still requires confirmation.",
+  diagnostics: "Run local diagnostics",
+  diagnosticsDescription: "Nothing is uploaded. The report excludes keys, configs, IPs, network names and raw errors.",
+  diagnosticReport: "Local diagnostic report",
+  copyReport: "Copy report",
+  reportCopied: "Report copied.",
+  copyManually: "Select the report text and copy it manually.",
+  diagnosticsFailed: "Could not inspect the network. Check WireGuard and try again.",
+  routeV4: "IPv4 route",
+  routeV6: "IPv6 route",
+  dnsCheck: "DNS configuration",
+  tunnelRoute: "Through Warply",
+  notVerified: "Not verified",
+  dnsConfigured: "Matches configured servers",
+  otherVpns: "Other VPN adapters",
+  conflictWarning: "Another VPN adapter is active. Disconnect the other VPN before connecting Warply.",
+  helperConsent: "Approve the Windows prompt to let Warply manage the tunnel. Select Try again to retry.",
+  protectionIncomplete: "Warply protection is incomplete. Select Restore internet before reconnecting.",
+  guardSettingBlocked: "Select Restore internet before changing kill switch settings.",
+
   privacyNoCollection: 'Warply has no telemetry, analytics, ads, usage history, or crash uploads.',
   privacyStorage: 'Your saved private configuration is encrypted by Windows. Export intentionally creates a readable file; keep it private.',
   privacyNetwork: 'Cloudflare receives the public key during registration and handles tunnel traffic and connection checks. Updates contact GitHub only when you request a check.',
@@ -33,7 +62,7 @@ export const en = {
   lastCheck: 'Last check',
   secondsAgo: 'seconds ago',
   healthExplanation:
-    'Checks HTTPS access through the tunnel address every 30 seconds. A successful check confirms WARP for that request; it does not test every app or IPv6 route.',
+    'Checks source-bound IPv4 and IPv6 HTTPS, selected routes and DNS configuration every 30 seconds. These checks do not certify every app or prove external DNS leak prevention.',
   checkConnection: 'Check connection',
   verificationPending: 'The service is running. Checking access through WARP…',
   verificationFailed:
@@ -150,6 +179,35 @@ export type Language = 'en' | 'cs'
 export type Translator = (key: MessageKey) => string
 
 export const cs: Record<MessageKey, string> = {
+  securityMenu: "Ochrana a obnova",
+  securityDescription: "Trvalá ochrana, oznámení a místní diagnostika.",
+  killSwitch: "Trvalý kill switch",
+  killSwitchDescription: "Od připojení až do OFF blokuje provoz mimo Warply. Zůstává aktivní po pádu aplikace i restartu. Výjimky: loopback, přenos WireGuardu, DHCP a zjišťování sousedů IPv6.",
+  protectionActive: "Kill switch aktivní · provoz mimo Warply je blokován",
+  restoreInternet: "Obnovit internet",
+  restoreDescription: "Zastaví Warply a odstraní jeho ochranná pravidla. Provoz potom může používat běžné připojení.",
+  notifications: "Oznámení o připojení",
+  automaticUpdateChecks: "Automaticky kontrolovat aktualizace",
+  automaticUpdatesDescription: "Volitelná kontrola GitHubu nejvýše jednou denně během běhu Warply. Instalaci vždy potvrzujete.",
+  diagnostics: "Spustit místní diagnostiku",
+  diagnosticsDescription: "Nic se neodesílá. Přehled neobsahuje klíče, konfiguraci, IP adresy, názvy sítí ani surové chyby.",
+  diagnosticReport: "Místní diagnostický přehled",
+  copyReport: "Zkopírovat přehled",
+  reportCopied: "Přehled zkopírován.",
+  copyManually: "Označte text přehledu a zkopírujte ho ručně.",
+  diagnosticsFailed: "Síť se nepodařilo prověřit. Zkontrolujte WireGuard a zkuste to znovu.",
+  routeV4: "Trasa IPv4",
+  routeV6: "Trasa IPv6",
+  dnsCheck: "Nastavení DNS",
+  tunnelRoute: "Přes Warply",
+  notVerified: "Neověřeno",
+  dnsConfigured: "Odpovídá nastaveným serverům",
+  otherVpns: "Další adaptéry VPN",
+  conflictWarning: "Je aktivní další adaptér VPN. Před připojením Warply vypněte druhou VPN.",
+  helperConsent: "Potvrďte výzvu Windows pro správu tunelu. Opakujte tlačítkem Zkusit znovu.",
+  protectionIncomplete: "Ochrana Warply není úplná. Před připojením vyberte Obnovit internet.",
+  guardSettingBlocked: "Před změnou kill switche vyberte Obnovit internet.",
+
   privacyNoCollection: 'Warply nemá telemetrii, analytiku, reklamy, historii používání ani odesílání chybových hlášení.',
   privacyStorage: 'Soukromou konfiguraci šifruje Windows. Export úmyslně vytvoří čitelný soubor; uchovávejte jej v soukromí.',
   privacyNetwork: 'Cloudflare při registraci obdrží veřejný klíč a zpracovává provoz tunelu i kontroly připojení. GitHub kontaktujeme jen na váš pokyn ke kontrole aktualizací.',
@@ -184,7 +242,7 @@ export const cs: Record<MessageKey, string> = {
   lastCheck: 'Poslední kontrola',
   secondsAgo: 'sekund zpět',
   healthExplanation:
-    'Každých 30 sekund kontroluje HTTPS přes adresu tunelu. Úspěch potvrzuje WARP pro tento požadavek; neověřuje každou aplikaci ani trasu IPv6.',
+    'Každých 30 sekund kontroluje HTTPS přes IPv4 a IPv6 tunelu, vybrané trasy a nastavení DNS. Neověřuje každou aplikaci ani neprokazuje úplnou ochranu před úniky DNS.',
   checkConnection: 'Ověřit připojení',
   verificationPending: 'Služba běží. Ověřování přístupu přes WARP…',
   verificationFailed:
@@ -299,6 +357,11 @@ export const cs: Record<MessageKey, string> = {
 
 export function localizeBackendMessage(message: string, t: Translator): string {
   const messages: Record<string, MessageKey> = {
+    "Another VPN adapter is active. Disconnect the other VPN before connecting Warply.": "conflictWarning",
+    "Approve the Windows prompt to let Warply manage the tunnel. Select Try again to retry.": "helperConsent",
+    "Warply protection is incomplete. Select Restore internet before reconnecting.": "protectionIncomplete",
+    "Select Restore internet before changing kill switch settings.": "guardSettingBlocked",
+
     'Enter up to eight DNS IP addresses separated by commas.': 'invalidDns',
     'Enter an endpoint as hostname:port or [IPv6]:port.': 'invalidEndpoint',
     'Install Warply in Program Files before enabling Start with Windows.':

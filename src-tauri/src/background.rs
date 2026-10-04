@@ -17,6 +17,8 @@ use crate::{
 };
 
 pub struct TrayState {
+    status: MenuItem<tauri::Wry>,
+    restore: MenuItem<tauri::Wry>,
     connect: MenuItem<tauri::Wry>,
     open: MenuItem<tauri::Wry>,
     startup: CheckMenuItem<tauri::Wry>,
@@ -32,6 +34,8 @@ pub fn show(app: &tauri::AppHandle) {
 }
 
 pub fn setup(app: &tauri::AppHandle) -> tauri::Result<()> {
+    let status = MenuItem::with_id(app, "status", "Getting ready…", false, None::<&str>)?;
+    let restore = MenuItem::with_id(app, "restore", "Restore internet", true, None::<&str>)?;
     let connect = MenuItem::with_id(app, "toggle", "Connect", false, None::<&str>)?;
     let open = MenuItem::with_id(app, "open", "Open Warply", true, None::<&str>)?;
     let startup = CheckMenuItem::with_id(
@@ -43,8 +47,8 @@ pub fn setup(app: &tauri::AppHandle) -> tauri::Result<()> {
         None::<&str>,
     )?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&connect, &open, &startup, &quit])?;
-    let icon = tray_image(app, false, false)?;
+    let menu = Menu::with_items(app, &[&status, &connect, &restore, &open, &startup, &quit])?;
+    let icon = tray_image(app, TrayIndicator::Offline, false)?;
     TrayIconBuilder::with_id("warply")
         .icon(icon)
         .tooltip("Warply — Getting ready…")
@@ -56,6 +60,16 @@ pub fn setup(app: &tauri::AppHandle) -> tauri::Result<()> {
                 "open" => show(&app),
                 "toggle" => toggle(app),
                 "quit" => quit_app(app),
+                "restore" => {
+                    tauri::async_runtime::spawn(async move {
+                        let state = app.state::<AppState>();
+                        if let Err(message) = commands::restore_internet(state.clone()).await {
+                            state.view.lock().await.message = Some(message);
+                            show(&app);
+                        }
+                        update_tray(&app).await;
+                    });
+                }
                 "startup" => {
                     tauri::async_runtime::spawn(async move {
                         let state = app.state::<AppState>();
@@ -86,6 +100,8 @@ pub fn setup(app: &tauri::AppHandle) -> tauri::Result<()> {
         })
         .build(app)?;
     app.manage(TrayState {
+        status,
+        restore,
         connect,
         open,
         startup,
@@ -128,7 +144,7 @@ pub fn quit_app(app: tauri::AppHandle) {
         let state = app.state::<AppState>();
         let _operation = state.operation.lock().await;
         let result = tauri::async_runtime::spawn_blocking(|| {
-            tunnel::backend().disconnect().map_err(|e| e.to_string())?;
+            crate::helper::stop(true)?;
             storage::remove_service_profile()
         })
         .await;
@@ -143,9 +159,17 @@ pub fn quit_app(app: tauri::AppHandle) {
     });
 }
 
+#[derive(Clone, Copy)]
+enum TrayIndicator {
+    Offline,
+    Verified,
+    Checking,
+    Blocked,
+}
+
 fn tray_image(
     app: &tauri::AppHandle,
-    connected: bool,
+    indicator: TrayIndicator,
     dark: bool,
 ) -> tauri::Result<tauri::image::Image<'static>> {
     let source = app
@@ -168,12 +192,12 @@ fn tray_image(
     for pixel in rgba.as_chunks_mut::<4>().0 {
         if pixel[0] > 240 && pixel[1] > 240 && pixel[2] > 240 {
             pixel[3] = 0;
-        } else if !connected {
+        } else if matches!(indicator, TrayIndicator::Offline | TrayIndicator::Blocked) {
             pixel[3] = (u16::from(pixel[3]) * 60 / 100) as u8;
         }
         pixel[..3].fill(color);
     }
-    if connected {
+    if !matches!(indicator, TrayIndicator::Offline) {
         let radius = width / 9;
         let cx = width.saturating_sub(radius + 1);
         let cy = height.saturating_sub(radius + 1);
@@ -183,7 +207,13 @@ fn tray_image(
                 let dy = i64::from(y) - i64::from(cy);
                 if dx * dx + dy * dy <= i64::from(radius).pow(2) {
                     let offset = ((y * width + x) * 4) as usize;
-                    rgba[offset..offset + 4].copy_from_slice(&[color, color, color, 255]);
+                    let dot = match indicator {
+                        TrayIndicator::Verified => [16, 160, 70, 255],
+                        TrayIndicator::Checking => [230, 160, 30, 255],
+                        TrayIndicator::Blocked => [220, 65, 65, 255],
+                        TrayIndicator::Offline => [color, color, color, 255],
+                    };
+                    rgba[offset..offset + 4].copy_from_slice(&dot);
                 }
             }
         }
@@ -211,6 +241,12 @@ pub async fn update_tray(app: &tauri::AppHandle) {
             "Připojování…"
         } else {
             "Connecting…"
+        }
+    } else if crate::helper::cached().active && !connected {
+        if cs {
+            "Internet blokován · kill switch"
+        } else {
+            "Internet blocked · kill switch"
         }
     } else if view.message.is_some() {
         if cs {
@@ -242,11 +278,29 @@ pub async fn update_tray(app: &tauri::AppHandle) {
     };
     if let Some(tray) = app.tray_by_id("warply") {
         let _ = tray.set_tooltip(Some(format!("Warply — {title}")));
-        if let Ok(image) = tray_image(app, verified, crate::appearance::system_dark()) {
+        if let Ok(image) = tray_image(
+            app,
+            if verified {
+                TrayIndicator::Verified
+            } else if connected || view.auto_connecting {
+                TrayIndicator::Checking
+            } else if crate::helper::cached().active {
+                TrayIndicator::Blocked
+            } else {
+                TrayIndicator::Offline
+            },
+            crate::appearance::system_dark(),
+        ) {
             let _ = tray.set_icon(Some(image));
         }
     }
     let items = app.state::<TrayState>();
+    let _ = items.status.set_text(title);
+    let _ = items.restore.set_text(if cs {
+        "Obnovit internet"
+    } else {
+        "Restore internet"
+    });
     let _ = items.connect.set_text(if connected {
         if cs {
             "Odpojit"
@@ -353,16 +407,14 @@ pub fn start_monitor(app: tauri::AppHandle) {
                             // Recheck user intent after taking the operation lock.
                             if state.desired_connected.load(Ordering::SeqCst) {
                                 state.health.invalidate().await;
-                                if dropped && !outage {
+                                if (dropped || force_reconnect) && !outage {
                                     notify(&view.settings, false);
                                     outage = true;
                                 }
                                 state.view.lock().await.auto_connecting = true;
                                 let result = async {
                                     if force_reconnect {
-                                        tunnel::backend()
-                                            .disconnect()
-                                            .map_err(|error| error.to_string())?;
+                                        crate::helper::stop(false)?;
                                     }
                                     commands::connect().await
                                 }
@@ -389,6 +441,9 @@ pub fn start_monitor(app: tauri::AppHandle) {
                         }
                     }
                 }
+                if view.status == SetupStatus::Ready {
+                    let _ = crate::helper::refresh();
+                }
                 update_tray(&app).await;
             });
             std::thread::sleep(Duration::from_secs(if visible { 5 } else { 15 }));
@@ -397,13 +452,30 @@ pub fn start_monitor(app: tauri::AppHandle) {
 }
 
 fn notify(settings: &storage::Settings, failed: bool) {
+    notify_message(settings, if failed { 1 } else { 0 });
+}
+
+pub fn notify_unverified(settings: &storage::Settings) {
+    notify_message(settings, 2);
+}
+
+fn notify_message(settings: &storage::Settings, kind: u8) {
+    if !settings.notifications {
+        return;
+    }
     #[cfg(target_os = "windows")]
     {
-        let text = match (settings.language.as_str(), failed) {
-            ("cs", true) => "Připojení se nepodařilo obnovit. Otevřete Warply a zkuste to znovu.",
-            ("cs", false) => "Připojení bylo přerušeno. Warply se pokouší připojit znovu.",
-            (_, true) => "Could not reconnect. Open Warply and try again.",
-            (_, false) => "Connection interrupted. Warply is reconnecting.",
+        let text = match (settings.language.as_str(), kind) {
+            ("cs", 1) => "Připojení se nepodařilo obnovit. Otevřete Warply a zkuste to znovu.",
+            ("cs", 0) => "Připojení bylo přerušeno. Warply se pokouší připojit znovu.",
+            (_, 1) => "Could not reconnect. Open Warply and try again.",
+            (_, 0) => "Connection interrupted. Warply is reconnecting.",
+            ("cs", _) => {
+                "Připojení WARP se již nedaří ověřit. Otevřete Warply a zkontrolujte stav ochrany."
+            }
+            (_, _) => {
+                "The WARP connection can no longer be verified. Open Warply to check protection."
+            }
         };
         // Native WinRT toast; constant XML, text passed as data, no secrets.
         // No notification is sent for an ordinary user connect/disconnect.
@@ -427,7 +499,7 @@ $toast.Group='warply'
             .spawn();
     }
     #[cfg(not(target_os = "windows"))]
-    let _ = (settings, failed);
+    let _ = (settings, kind);
 }
 
 #[cfg(test)]

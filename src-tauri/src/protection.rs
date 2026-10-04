@@ -1,4 +1,4 @@
-//! Windows DPAPI. No key material is passed to a subprocess or to the webview.
+//! Windows DPAPI. Private profiles stay out of the webview and subprocess arguments.
 use zeroize::Zeroizing;
 
 const CONTEXT: &[u8] = b"Warply local profile v1";

@@ -8,6 +8,10 @@ use serde::{Deserialize, Serialize};
 #[serde(default)]
 pub struct Settings {
     pub auto_connect: bool,
+    pub kill_switch: bool,
+    pub notifications: bool,
+    pub automatic_update_checks: bool,
+    pub last_update_check: u64,
     pub install_prompted: bool,
     pub start_with_windows: bool,
     pub start_minimized: bool,
@@ -22,6 +26,10 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             auto_connect: false,
+            kill_switch: false,
+            notifications: true,
+            automatic_update_checks: false,
+            last_update_check: 0,
             install_prompted: false,
             start_with_windows: false,
             start_minimized: false,
@@ -178,19 +186,9 @@ pub fn prepare_profile() -> Result<bool, String> {
         return Ok(false);
     }
     if running {
-        crate::tunnel::backend()
-            .disconnect()
-            .map_err(|e| e.to_string())?;
+        crate::helper::stop(false)?;
     }
     Ok(running)
-}
-
-pub fn service_profile(contents: &str) -> Result<PathBuf, String> {
-    crate::config::validate_import(contents).map_err(|error| error.to_string())?;
-    let encrypted = crate::protection::protect_service(contents.as_bytes())?;
-    let path = data_folder()?.join("warply.conf.dpapi");
-    secure_write_with_scope(&path, &encrypted, true)?;
-    Ok(path)
 }
 
 pub fn remove_service_profile() -> Result<(), String> {
@@ -381,7 +379,11 @@ fn secure_write(path: &Path, contents: &[u8]) -> Result<(), String> {
     secure_write_with_scope(path, contents, false)
 }
 
-fn secure_write_with_scope(path: &Path, contents: &[u8], service: bool) -> Result<(), String> {
+pub(crate) fn secure_write_with_scope(
+    path: &Path,
+    contents: &[u8],
+    service: bool,
+) -> Result<(), String> {
     let folder = path
         .parent()
         .ok_or_else(|| "Invalid app data path.".to_string())?;
@@ -586,5 +588,59 @@ mod tests {
         assert_eq!(fs::read_dir(&folder).expect("folder contents").count(), 1);
         fs::remove_file(path).expect("remove file");
         fs::remove_dir(folder).expect("remove folder");
+    }
+}
+
+#[cfg(target_os = "windows")]
+pub fn machine_folder() -> Result<PathBuf, String> {
+    use std::os::windows::ffi::OsStringExt;
+    use windows_sys::Win32::{
+        System::Com::CoTaskMemFree,
+        UI::Shell::{FOLDERID_ProgramData, SHGetKnownFolderPath},
+    };
+    let mut pointer = std::ptr::null_mut();
+    if unsafe { SHGetKnownFolderPath(&FOLDERID_ProgramData, 0, std::ptr::null_mut(), &mut pointer) }
+        < 0
+        || pointer.is_null()
+    {
+        return Err("Could not locate protected service storage.".into());
+    }
+    let mut length = 0;
+    unsafe {
+        while length < 32768 && *pointer.add(length) != 0 {
+            length += 1;
+        }
+        if length == 32768 {
+            CoTaskMemFree(pointer.cast());
+            return Err("Invalid service storage path.".into());
+        }
+        let root = PathBuf::from(std::ffi::OsString::from_wide(std::slice::from_raw_parts(
+            pointer, length,
+        )));
+        CoTaskMemFree(pointer.cast());
+        let folder = root.join("WarplyService");
+        secure_folder(&folder)?;
+        crate::file_security::restrict_path(&folder, true, true)?;
+        Ok(folder)
+    }
+}
+
+pub fn machine_service_profile(contents: &str) -> Result<PathBuf, String> {
+    crate::config::validate_import(contents).map_err(|error| error.to_string())?;
+    let folder = machine_folder()?;
+    let path = folder.join("warply.conf.dpapi");
+    let encrypted = crate::protection::protect_service(contents.as_bytes())?;
+    secure_write_with_scope(&path, &encrypted, true)?;
+    crate::file_security::restrict_path(&folder, true, true)?;
+    Ok(path)
+}
+
+pub fn remove_machine_service_profile() -> Result<(), String> {
+    let path = machine_folder()?.join("warply.conf.dpapi");
+    reject_links(&path)?;
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(_) => Err("Could not remove encrypted service storage.".into()),
     }
 }

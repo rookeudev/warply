@@ -3,9 +3,12 @@ mod autostart;
 mod background;
 mod commands;
 mod config;
+mod diagnostics;
 mod elevation;
 mod file_security;
+mod guard;
 mod health;
+mod helper;
 mod import_dialog;
 mod installer;
 mod instance;
@@ -22,11 +25,14 @@ mod warp_api;
 use tauri::Manager;
 
 pub fn run() {
+    if helper::run() {
+        return;
+    }
     #[cfg(target_os = "windows")]
     if instance::focus_existing() {
         return;
     }
-    match elevation::ensure_administrator() {
+    match elevation::ensure_unprivileged() {
         Ok(true) => {}
         Ok(false) => return,
         Err(message) => {
@@ -88,9 +94,12 @@ pub fn run() {
             appearance::set_window_appearance,
             appearance::open_project_page,
             updater::check_for_update,
+            updater::automatic_update_check,
             updater::install_update,
             commands::tunnel_snapshot,
             commands::recheck_connection,
+            commands::restore_internet,
+            diagnostics::diagnostic_report,
             commands::import_config,
             commands::connect_tunnel,
             commands::disconnect_tunnel,
