@@ -390,7 +390,10 @@ mod native {
                 }
                 Ok(())
             }
-            Request::ValidateProtection {} => crate::guard::validate(),
+            Request::ValidateProtection {} => {
+                crate::storage::machine_folder()?;
+                crate::guard::validate()
+            }
             Request::Connect {
                 mut profile,
                 protect,
@@ -445,7 +448,7 @@ mod native {
         let args: Vec<String> = std::env::args().collect();
         if args.len() == 2 && args[1] == "--validate-protection" {
             let result = if unsafe { IsUserAnAdmin() } != 0 {
-                crate::guard::validate()
+                crate::storage::machine_folder().and_then(|_| crate::guard::validate())
             } else {
                 super::send(Request::ValidateProtection {}, true).map(|_| ())
             };

@@ -1,10 +1,10 @@
 {
-  "version": "0.2.1",
-  "notes": "Optional persistent kill switch and emergency recovery, unelevated GUI with an authenticated privileged helper, IPv4/IPv6 WARP verification and routing/DNS inspection, local diagnostics, notifications, opt-in daily signed-update checks, and installer executable recovery.",
+  "version": "0.2.2",
+  "notes": "Fix Windows service-storage file permissions without resetting accounts. Optional persistent kill switch and emergency recovery, unelevated GUI with an authenticated privileged helper, IPv4/IPv6 WARP verification and routing/DNS inspection, local diagnostics, notifications, opt-in daily signed-update checks, and installer executable recovery.",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUWZMc29sU09LaXdBM0xId2VnRTJnSGpEeU1scllUbkVCZ3VNTTBJaktrSHlRTVB2T21EMWk5QVhncUtGTEFER3lXMlZRaHAxZTBOdllYekNKMldGNk1ISkNYT3ZEK2dNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMTA0MzcyCWZpbGU6V2FycGx5XzAuMi4xX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjIuMQpvWkNFZmUvdnhkNzh1dGxCTVVnajdHTUswWGZDTkVVSko5dTFsZy9Ubmtnb0IxcWlkMmtnY0FNVGt5YjZ1WmNmMFp2aFpmaXNZekZKNzM0MTNWdm9CQT09Cg==",
-      "url": "https://github.com/rookeudev/warply/releases/download/v0.2.1/Warply_0.2.1_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUWZMc29sU09LaTZsanZaQlVlSWhQUFVFb3QwSlRkNU1FeGpGb0pidWRQN3RkblRHV3FxSEwxNTJkamdwQUhTeHlTbXZBcDhGSUplR2VtZUJIZmJnN3lTaVFvNGpnWUFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMTA2MDg0CWZpbGU6V2FycGx5XzAuMi4yX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjIuMgp3N2dmRG9uTGIwL1YySnZOWnNJbkExMWIxa0RPT2RjQ1RnYklqSFo4UWxxYjUzelZUSndtZXpwTENmUHVnZDlKN2N0dEpTNVZ4NnROd0VBMlo0T2dBUT09Cg==",
+      "url": "https://github.com/rookeudev/warply/releases/download/v0.2.2/Warply_0.2.2_x64-setup.exe"
     }
   }
 }

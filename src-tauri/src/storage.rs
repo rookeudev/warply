@@ -358,6 +358,10 @@ pub fn ensure_regular_file(file: &File) -> Result<(), String> {
 }
 
 pub fn secure_folder(folder: &Path) -> Result<(), String> {
+    secure_folder_scoped(folder, false)
+}
+
+fn secure_folder_scoped(folder: &Path, service: bool) -> Result<(), String> {
     reject_links(folder)?;
     fs::create_dir_all(folder).map_err(|_| "Could not create Warply's data folder.".to_string())?;
     let metadata = fs::symlink_metadata(folder)
@@ -372,7 +376,11 @@ pub fn secure_folder(folder: &Path) -> Result<(), String> {
     if metadata.file_type().is_symlink() {
         return Err("Warply's data folder must not be a link.".into());
     }
-    restrict_acl(folder, true)
+    if service {
+        crate::file_security::restrict_path(folder, true, true)
+    } else {
+        restrict_acl(folder, true)
+    }
 }
 
 fn secure_write(path: &Path, contents: &[u8]) -> Result<(), String> {
@@ -387,7 +395,7 @@ pub(crate) fn secure_write_with_scope(
     let folder = path
         .parent()
         .ok_or_else(|| "Invalid app data path.".to_string())?;
-    secure_folder(folder)?;
+    secure_folder_scoped(folder, service)?;
     reject_links(path)?;
     static SAVE_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let id = SAVE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -551,7 +559,10 @@ mod tests {
         let path = folder.join("warply.conf.dpapi");
         let encrypted =
             crate::protection::protect_service(test_profile().as_bytes()).expect("encrypt");
-        secure_write_with_scope(&path, &encrypted, true).expect("service copy");
+        // The normal-user test inspects the file DACL independently of the
+        // elevated helper's admin-only parent directory.
+        secure_write(&path, &encrypted).expect("encrypted fixture");
+        crate::file_security::restrict_path(&path, false, true).expect("service copy");
         // Inspect the actual Windows DACL, without returning the secret or SID.
         let output = crate::tunnel::windows_powershell().args(["-NoProfile", "-NonInteractive", "-Command", "$ErrorActionPreference='Stop'; $acl=Get-Acl -LiteralPath $env:WARPLY_ACL_TEST; $ids=@($acl.Access | ForEach-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value } | Sort-Object); if (!$acl.AreAccessRulesProtected -or $ids.Count -ne 2 -or $ids[0] -ne 'S-1-5-18' -or $ids[1] -ne 'S-1-5-32-544' -or @($acl.Access | Where-Object { $_.IsInherited -or $_.FileSystemRights -ne 'FullControl' }).Count -ne 0) { exit 1 }"])
             .env("WARPLY_ACL_TEST", &path).output().expect("inspect permissions");
@@ -619,8 +630,7 @@ pub fn machine_folder() -> Result<PathBuf, String> {
         )));
         CoTaskMemFree(pointer.cast());
         let folder = root.join("WarplyService");
-        secure_folder(&folder)?;
-        crate::file_security::restrict_path(&folder, true, true)?;
+        secure_folder_scoped(&folder, true)?;
         Ok(folder)
     }
 }

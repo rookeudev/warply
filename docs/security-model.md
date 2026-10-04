@@ -1,4 +1,4 @@
-# Security model — v0.2.1
+# Security model — v0.2.2
 
 Warply has additional safeguards, but this is not a claim of complete security or a full independent audit. Source secrecy is not a security control.
 
@@ -50,3 +50,7 @@ Rust tests additionally cover DPAPI round trips and tampering, verified migratio
 On a Windows VM, check a real working tunnel, block WARP traffic while leaving the service running, restore access, block only the trace endpoint, switch networks, disconnect during a pending check, and inspect IPv4/IPv6/DNS routing separately. Verify that a failed check never shows green and that the user can still disconnect. Test linked file rejection and reset cancellation/registration failure without losing the old profile.
 
 The 0.2.1 checks also cover dual-stack verification requirements, strict helper request/frame parsing, and UI protection/recovery controls. See [the full Windows acceptance checklist](0.2.1-test-checklist.md).
+
+## 0.2.2 storage correction
+
+Held handles used to update protected directory/file DACLs now request READ_CONTROL as well as WRITE_DAC, avoiding Windows access-denied failures. Machine service folders keep SYSTEM/Administrators scope throughout secure saves instead of being temporarily passed through user-folder protection. A normal-user regression test protects both a directory and file and repeats the operation. Native helper preflight also checks the actual protected service folder. No account reset or profile deletion is required.

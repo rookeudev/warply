@@ -189,7 +189,7 @@ pub fn restrict_path(path: &std::path::Path, folder: bool, service: bool) -> Res
     {
         use std::os::windows::fs::OpenOptionsExt;
         options
-            .access_mode(0x00040000 | 0x80)
+            .access_mode(0x00040000 | 0x00020000 | 0x80)
             .share_mode(1)
             .custom_flags(0x00200000 | if folder { 0x02000000 } else { 0 });
     }
@@ -197,4 +197,28 @@ pub fn restrict_path(path: &std::path::Path, folder: bool, service: bool) -> Res
         .open(path)
         .map_err(|_| "Could not secure protected storage.")?;
     restrict(&file, folder, service)
+}
+
+#[cfg(all(test, target_os = "windows"))]
+mod tests {
+    #[test]
+    fn held_path_acl_update_works_without_elevation() {
+        let id = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let directory = std::env::temp_dir().join(format!("warply-acl-regression-{id}"));
+        std::fs::create_dir(&directory).expect("temporary directory");
+        super::restrict_path(&directory, true, false).expect("protect directory");
+        let path = directory.join("nonsecret.txt");
+        std::fs::write(&path, b"nonsecret").expect("fixture");
+        super::restrict_path(&path, false, false).expect("protect file");
+        assert_eq!(
+            std::fs::read(&path).expect("preserved contents"),
+            b"nonsecret"
+        );
+        super::restrict_path(&directory, true, false).expect("repeat protection");
+        std::fs::remove_file(&path).expect("remove fixture");
+        std::fs::remove_dir(&directory).expect("remove empty fixture directory");
+    }
 }
