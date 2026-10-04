@@ -98,16 +98,60 @@ pub fn tunnel_luid() -> Result<u64, String> {
 pub async fn diagnostic_report(
     state: tauri::State<'_, crate::setup::AppState>,
 ) -> Result<String, String> {
-    let network = tauri::async_runtime::spawn_blocking(inspect)
-        .await
-        .map_err(|_| "Could not inspect the network.")??;
-    let status = tauri::async_runtime::spawn_blocking(|| crate::tunnel::backend().status())
-        .await
-        .map_err(|_| "Could not inspect the service.")?
-        .map_err(|_| "Could not inspect the service.")?;
-    let health = state.health.view(status).await;
-    let service = serde_json::to_string(&status).map_err(|_| "Could not prepare diagnostics.")?;
+    report(&state).await
+}
+pub async fn report(state: &crate::setup::AppState) -> Result<String, String> {
+    let (service, network, profile, wireguard) = tauri::async_runtime::spawn_blocking(|| {
+        use crate::storage::ProfileStore;
+        let service = crate::tunnel::backend().status().ok();
+        let network = inspect().unwrap_or_default();
+        let profile = match crate::storage::SecureProfileStore.load() {
+            Ok(Some(contents)) => {
+                let _protected = zeroize::Zeroizing::new(contents);
+                "readable encrypted profile"
+            }
+            Ok(None) => "missing",
+            Err(_) => "unavailable or invalid (preserved)",
+        };
+        let wireguard = match crate::tunnel::backend().wireguard_path() {
+            Some(path) if crate::installer::verify_wireguard(&path).is_ok() => {
+                "installed, publisher verified"
+            }
+            Some(_) => "installed, publisher not verified",
+            None => "not installed",
+        };
+        (service, network, profile, wireguard)
+    })
+    .await
+    .map_err(|_| "Could not prepare local diagnostics.")?;
+    let service_text = service
+        .map(|value| format!("{value:?}").to_ascii_lowercase())
+        .unwrap_or("unknown".into());
+    let health = state
+        .health
+        .view(service.unwrap_or(crate::tunnel::TunnelStatus::Error))
+        .await;
     let check =
         serde_json::to_string(&health.status).map_err(|_| "Could not prepare diagnostics.")?;
-    Ok(format!("Warply {}\nWindows\nService: {service}\nWARP check: {check}\nCheck age (seconds): {:?}\nIPv4 route through Warply: {}\nIPv6 route through Warply: {}\nDNS matches configured servers: {}\nOther active VPN adapters: {}\nPersistent kill switch active: {}\nGUI elevated: false\n\nLocal report only. No keys, config, IP addresses, network names, account IDs or raw logs. Route/DNS configuration checks do not prove every application's traffic or external DNS leak prevention.", env!("CARGO_PKG_VERSION"), health.checked_ago_secs, network.ipv4_tunnel, network.ipv6_tunnel, network.dns_matches, network.other_vpn_count, crate::helper::cached().active))
+    let guard = crate::helper::cached();
+    Ok(format!("Warply {}\nWindows\nService: {service_text}\nProfile: {profile}\nWireGuard: {wireguard}\nWARP check: {check}\nCheck age (seconds): {:?}\nNetwork inspection available: {}\nIPv4 route through Warply: {}\nIPv6 route through Warply: {}\nDNS matches configured servers: {}\nOther active VPN adapters: {}\nProtection: {}\nGUI elevated: false\n\nSuggested next step: {}\n\nLocal report only. No keys, config, IP addresses, network names, account IDs or raw logs. Unknown inspection is not proof of safety. Route/DNS checks do not certify every application's traffic or external DNS leak prevention.", env!("CARGO_PKG_VERSION"), health.checked_ago_secs, network.inspection_available, inspected(network.inspection_available, network.ipv4_tunnel), inspected(network.inspection_available, network.ipv6_tunnel), inspected(network.inspection_available, network.dns_matches), if network.inspection_available { network.other_vpn_count.to_string() } else { "unknown".into() }, if !guard.known { "unknown (helper unavailable or check pending)" } else if guard.active { "active" } else { "inactive" }, if !guard.known { "Use Restore internet to restart the helper and verify protection." } else if guard.active { "Use Restore internet before uninstalling, or reconnect with protection enabled." } else if profile == "missing" { "Retry automatic setup or import a profile in Account & advanced." } else if !network.inspection_available { "Retry diagnostics; inspect WireGuard installation and the saved profile." } else { "No active Warply protection detected. Use the latest installer if an old uninstaller fails." }))
+}
+fn inspected(available: bool, value: bool) -> &'static str {
+    if !available {
+        "unknown"
+    } else if value {
+        "yes"
+    } else {
+        "no"
+    }
+}
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn unavailable_inspection_never_reports_success_or_zero_as_a_verified_result() {
+        assert_eq!(super::inspected(false, true), "unknown");
+        assert_eq!(super::inspected(false, false), "unknown");
+        assert_eq!(super::inspected(true, true), "yes");
+        assert_eq!(super::inspected(true, false), "no");
+    }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "warply"
-version = "0.2.3"
+version = "0.2.4"
 description = "Windows desktop client for Cloudflare WARP via WireGuard"
 authors = ["Warply contributors"]
 edition = "2021"

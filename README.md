@@ -37,7 +37,7 @@ Cloudflare WARP is a free service that encrypts your internet traffic. Setting i
 - **Reconnects by itself** after sleep or a network change.
 - **Verified status.** Separate IPv4/IPv6 WARP checks, selected routes, DNS configuration, and VPN conflict checks; a running service alone never shows green.
 - **Optional persistent kill switch.** Keeps ordinary internet traffic blocked during recovery, crashes, and reboot, with an explicit Restore internet action. See the security notes for permitted transport/network exceptions.
-- **Local diagnostics.** Copy a report without keys, IP addresses, usernames, or automatic uploads.
+- **Local diagnostics.** Copy a partial troubleshooting report even when setup fails, without keys, IP addresses, usernames, or automatic uploads. The explicit `warply.exe --diagnostics` command also works without opening the interface.
 - **Simple loading screen.** Logo and status while automatic setup starts; errors open the normal recovery screen.
 - **Start menu.** The installer creates a searchable Warply shortcut. Manual launches open the window even when Windows logon is set to start in the tray.
 - **Organized settings.** Startup, connection, protection, appearance, account, and updates have their own sections, with grouped navigation and direct category shortcuts. Brief animations respect Windows reduced-motion preferences.

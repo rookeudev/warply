@@ -1,4 +1,4 @@
-# Privacy — Warply 0.2.3
+# Privacy — Warply 0.2.4
 
 ## What Warply collects
 

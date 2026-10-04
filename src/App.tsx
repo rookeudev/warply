@@ -158,7 +158,7 @@ export default function App() {
     !!snapshot &&
     !busy &&
     updateBusy !== 'installing' &&
-    snapshot.wireguard_installed &&
+    (serviceActive || snapshot.wireguard_installed) &&
     (serviceActive || (setup === 'ready' && snapshot.has_config && !connecting))
   let title = verified
     ? t('warpVerified')
@@ -182,11 +182,11 @@ export default function App() {
         : setup === 'installing_wireguard'
           ? t('installingWireGuard')
           : t('starting')
+  } else if (busy === 'disconnect' || busy === 'restore') {
+    title = t('disconnecting')
+    secondary = ''
   } else if (connecting) {
     title = t('connecting')
-    secondary = ''
-  } else if (busy === 'disconnect') {
-    title = t('disconnecting')
     secondary = ''
   } else if (failed) {
     title =
@@ -290,9 +290,25 @@ export default function App() {
               secondary={secondary}
               error={failed && !connecting}
             />
-            {snapshot?.protection?.active && (
+            {connecting && busy !== 'disconnect' && busy !== 'restore' && (
+              <button
+                type="button"
+                className="native-button"
+                onClick={() => void controls.cancelConnection()}
+              >
+                {t('cancelConnection')}
+              </button>
+            )}
+            {(snapshot?.protection?.active ||
+              snapshot?.protection?.known === false) && (
               <div className="protection-notice" role="status">
-                <p>{t('protectionActive')}</p>
+                <p>
+                  {t(
+                    snapshot?.protection?.known === false
+                      ? 'protectionUnknown'
+                      : 'protectionActive',
+                  )}
+                </p>
                 <button
                   type="button"
                   className="text-button"
@@ -302,6 +318,18 @@ export default function App() {
                   {t('restoreInternet')}
                 </button>
               </div>
+            )}
+            {failed && (
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => {
+                  setSettingsSection('security')
+                  navigate('settings')
+                }}
+              >
+                {t('troubleshooting')}
+              </button>
             )}
             {updateVersion && (
               <button type="button" className="text-button" onClick={openAbout}>

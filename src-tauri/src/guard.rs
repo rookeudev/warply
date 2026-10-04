@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Default, Deserialize, Serialize)]
 pub struct GuardView {
     pub active: bool,
+    pub known: bool,
 }
 
 #[cfg(target_os = "windows")]
@@ -216,7 +217,10 @@ mod native {
                     .into(),
             );
         }
-        Ok(super::GuardView { active: count == 6 })
+        Ok(super::GuardView {
+            active: count == 6,
+            known: true,
+        })
     }
     pub fn disable() -> Result<(), String> {
         let engine = Engine::open()?;

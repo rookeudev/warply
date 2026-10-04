@@ -1,10 +1,10 @@
 {
-  "version": "0.2.3",
-  "notes": "Redesigned grouped settings menu with direct category navigation, clearer active states, brief transitions and button feedback, English/Czech and reduced-motion support. Includes the 0.2.2 protected-storage fix.",
+  "version": "0.2.4",
+  "notes": "Repair the old uninstall failure without resetting profiles, repeated safe cleanup, explicit protection unknown states, partial local diagnostics, connection cancellation, and OFF when WireGuard.exe is unavailable.",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUWZMc29sU09LaXlQb3lxcVYyZlRGMkNDNFN1SmpWUmpPWjd6dmdDVnphcHN0VU9BTVM1Y0o1b1NwaFY2VUJOeFA2VUcvb29STjYvUnhLbE41NzRCTnl4OEUzNXV6UVFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMTEyMTM2CWZpbGU6V2FycGx5XzAuMi4zX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjIuMwpDMS9nN2c3TXBRcVREU21GcGx3RVZHZm9SenVURWxBQ1B0amVtcTBLbW0zQU5KT2FZYmJCcjJSbTN3VkxxVWo1dEdNZVdFSU9YRnNHUCs1d1QwTDFCZz09Cg==",
-      "url": "https://github.com/rookeudev/warply/releases/download/v0.2.3/Warply_0.2.3_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUWZMc29sU09LaTlwU0Yrc2JMWVNWdTh5RlVRNjkrSW14M2FYalJJdHVIM05zcGd1elhFNXpMZ0hHNG9kcjZzVGtXLy9TclB0Skt6NmJOMENqQU4yNktqcVFucnVTWGdVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMTEzODM2CWZpbGU6V2FycGx5XzAuMi40X3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjIuNApFRUE0Nkw2NzJQZUZOSlczTVMrYmhIeVFnUDRsRTU4Z0EyQTEyQU5MZjYzWnI3ZlNoM3VaZjBWTGU2M3c0R2N6akl3MFdQcTIvYVpNbndZdHExV0pBZz09Cg==",
+      "url": "https://github.com/rookeudev/warply/releases/download/v0.2.4/Warply_0.2.4_x64-setup.exe"
     }
   }
 }

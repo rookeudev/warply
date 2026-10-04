@@ -18,9 +18,15 @@ export type TunnelSnapshot = {
     checked_ago_secs: number | null
     ipv4?: string
     ipv6?: string
-    network?: { ipv4_tunnel: boolean; ipv6_tunnel: boolean; dns_matches: boolean; other_vpn_count: number; inspection_available: boolean }
+    network?: {
+      ipv4_tunnel: boolean
+      ipv6_tunnel: boolean
+      dns_matches: boolean
+      other_vpn_count: number
+      inspection_available: boolean
+    }
   }
-  protection?: { active: boolean }
+  protection?: { active: boolean; known?: boolean }
   has_config: boolean
   wireguard_installed: boolean
   setup: SetupStatus
@@ -125,18 +131,23 @@ export function useTunnel() {
     }
   }
 
-  async function restoreInternet() {
+  async function interrupt(command: 'restore_internet' | 'disconnect_tunnel') {
     if (restorePending.current) return
     restorePending.current = true
     const previousActivity = busy
-    setBusy('restore')
+    setBusy(command === 'restore_internet' ? 'restore' : 'disconnect')
     setError(null)
     try {
-      const next = await invoke<TunnelSnapshot>('restore_internet')
+      const next = await invoke<TunnelSnapshot>(command)
       applySnapshot(next, ++requestId.current)
       setError(null)
-    } catch (cause) { setError(String(cause)) }
-    finally { restorePending.current = false; setBusy(busyRef.current ? previousActivity : null); void refresh() }
+    } catch (cause) {
+      setError(String(cause))
+    } finally {
+      restorePending.current = false
+      setBusy(busyRef.current ? previousActivity : null)
+      void refresh()
+    }
   }
 
   async function importConfig() {
@@ -168,7 +179,8 @@ export function useTunnel() {
     importConfig,
     exportConfig,
     toggle,
-    restoreInternet,
+    restoreInternet: () => interrupt('restore_internet'),
+    cancelConnection: () => interrupt('disconnect_tunnel'),
     retrySetup: () => run('retry_setup', 'setup'),
     checkWireGuard: () => run('check_wireguard', 'check'),
     recheckConnection: () => run('recheck_connection', 'health'),
@@ -176,7 +188,13 @@ export function useTunnel() {
     setAutoConnect: (enabled: boolean) =>
       run('set_auto_connect', 'settings', { enabled }),
     setGeneral: (
-      name: 'start_with_windows' | 'start_minimized' | 'close_to_tray' | 'kill_switch' | 'notifications' | 'automatic_update_checks',
+      name:
+        | 'start_with_windows'
+        | 'start_minimized'
+        | 'close_to_tray'
+        | 'kill_switch'
+        | 'notifications'
+        | 'automatic_update_checks',
       enabled: boolean,
     ) => run('set_general_setting', 'settings', { name, enabled }),
     setNetwork: (dns: string, customDns: string, endpoint: string) =>

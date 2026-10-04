@@ -1,6 +1,7 @@
 mod appearance;
 mod autostart;
 mod background;
+mod cleanup;
 mod commands;
 mod config;
 mod diagnostics;

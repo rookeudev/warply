@@ -287,7 +287,10 @@ export default function Settings({
                 <Toggle
                   checked={snapshot?.settings.kill_switch ?? false}
                   disabled={
-                    locked || !disconnected || !!snapshot?.protection?.active
+                    locked ||
+                    !disconnected ||
+                    !!snapshot?.protection?.active ||
+                    snapshot?.protection?.known === false
                   }
                   label={t('killSwitch')}
                   onChange={(enabled) =>
@@ -298,9 +301,14 @@ export default function Settings({
               <p className="setting-description">
                 {t('killSwitchDescription')}
               </p>
-              {snapshot?.protection?.active && (
+              {(snapshot?.protection?.active ||
+                snapshot?.protection?.known === false) && (
                 <p className="notice" role="status">
-                  {t('protectionActive')}
+                  {t(
+                    snapshot?.protection?.known === false
+                      ? 'protectionUnknown'
+                      : 'protectionActive',
+                  )}
                 </p>
               )}
               <button

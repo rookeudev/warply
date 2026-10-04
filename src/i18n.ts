@@ -1,4 +1,10 @@
 export const en = {
+  runningDiagnostics: 'Checking this computer…',
+  troubleshooting: 'Diagnostics & recovery',
+  cancelConnection: 'Cancel connection',
+  protectionUnknown:
+    'Protection status is unavailable. Use diagnostics or Restore internet to check it.',
+
   securityMenu: 'Protection & recovery',
   securityMenuDescription: 'Kill switch and recovery.',
   securityDescription:
@@ -201,6 +207,12 @@ export type Language = 'en' | 'cs'
 export type Translator = (key: MessageKey) => string
 
 export const cs: Record<MessageKey, string> = {
+  runningDiagnostics: 'Kontroluji tento počítač…',
+  troubleshooting: 'Diagnostika a obnova',
+  cancelConnection: 'Zrušit připojování',
+  protectionUnknown:
+    'Stav ochrany nelze ověřit. Použij diagnostiku nebo Obnovit internet.',
+
   securityMenu: 'Ochrana a obnova',
   securityMenuDescription: 'Kill switch a obnova připojení.',
   securityDescription: 'Trvalá ochrana, oznámení a místní diagnostika.',

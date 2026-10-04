@@ -76,6 +76,9 @@ impl TunnelBackend for WindowsWireGuard {
         if self.status()? == TunnelStatus::Connected {
             return Ok(());
         }
+        // A previous failed start can leave a stopped service installed. Remove
+        // that fixed service before reinstalling, instead of returning "already exists".
+        self.disconnect()?;
         if !config_path.is_file() {
             return Err(TunnelError::ConfigMissing);
         }

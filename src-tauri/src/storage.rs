@@ -575,6 +575,15 @@ mod tests {
     }
 
     #[test]
+    fn absent_service_copy_cleanup_does_not_create_or_reprotect_a_folder() {
+        let folder = test_folder("absent-service-cleanup");
+        let path = folder.join("warply.conf.dpapi");
+        remove_service_copy_at(&path).expect("first cleanup");
+        remove_service_copy_at(&path).expect("repeated cleanup");
+        assert!(!folder.exists());
+    }
+
+    #[test]
     fn old_settings_keep_auto_connect_and_receive_background_defaults() {
         let settings: Settings =
             serde_json::from_str(r#"{"auto_connect":true,"install_prompted":true}"#)
@@ -603,7 +612,7 @@ mod tests {
 }
 
 #[cfg(target_os = "windows")]
-pub fn machine_folder() -> Result<PathBuf, String> {
+fn machine_folder_path() -> Result<PathBuf, String> {
     use std::os::windows::ffi::OsStringExt;
     use windows_sys::Win32::{
         System::Com::CoTaskMemFree,
@@ -630,9 +639,14 @@ pub fn machine_folder() -> Result<PathBuf, String> {
         )));
         CoTaskMemFree(pointer.cast());
         let folder = root.join("WarplyService");
-        secure_folder_scoped(&folder, true)?;
         Ok(folder)
     }
+}
+
+pub fn machine_folder() -> Result<PathBuf, String> {
+    let folder = machine_folder_path()?;
+    secure_folder_scoped(&folder, true)?;
+    Ok(folder)
 }
 
 pub fn machine_service_profile(contents: &str) -> Result<PathBuf, String> {
@@ -646,8 +660,11 @@ pub fn machine_service_profile(contents: &str) -> Result<PathBuf, String> {
 }
 
 pub fn remove_machine_service_profile() -> Result<(), String> {
-    let path = machine_folder()?.join("warply.conf.dpapi");
-    reject_links(&path)?;
+    remove_service_copy_at(&machine_folder_path()?.join("warply.conf.dpapi"))
+}
+
+fn remove_service_copy_at(path: &Path) -> Result<(), String> {
+    reject_links(path)?;
     match fs::remove_file(path) {
         Ok(()) => Ok(()),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),

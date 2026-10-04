@@ -184,6 +184,7 @@ mod native {
     }
     static CLIENT: OnceLock<Mutex<Option<Client>>> = OnceLock::new();
     static ACTIVE: AtomicBool = AtomicBool::new(false);
+    static KNOWN: AtomicBool = AtomicBool::new(false);
     fn wide(value: &str) -> Vec<u16> {
         value.encode_utf16().chain(Some(0)).collect()
     }
@@ -339,12 +340,16 @@ mod native {
         request: Request,
         allow_start: bool,
     ) -> Result<crate::guard::GuardView, String> {
+        if !matches!(&request, Request::Inspect {}) {
+            KNOWN.store(false, Ordering::SeqCst);
+        }
         let mut client = CLIENT
             .get_or_init(|| Mutex::new(None))
             .lock()
             .map_err(|_| "The helper is unavailable.")?;
         if client.is_none() {
             if !allow_start {
+                KNOWN.store(false, Ordering::SeqCst);
                 return Err("The privileged helper stopped. Select Connect or Restore internet to restart it.".into());
             }
             *client = Some(start()?);
@@ -354,18 +359,27 @@ mod native {
         };
         if let Err(error) = write_frame(&mut session.pipe, &request) {
             *client = None;
+            KNOWN.store(false, Ordering::SeqCst);
             return Err(error);
         }
         let bytes = match read_frame(&mut session.pipe) {
             Ok(bytes) => bytes,
             Err(error) => {
                 *client = None;
+                KNOWN.store(false, Ordering::SeqCst);
                 return Err(error);
             }
         };
-        let reply: Reply =
-            serde_json::from_slice(&bytes).map_err(|_| "Invalid helper response.")?;
+        let reply: Reply = match serde_json::from_slice(&bytes) {
+            Ok(reply) => reply,
+            Err(_) => {
+                *client = None;
+                KNOWN.store(false, Ordering::SeqCst);
+                return Err("Invalid helper response.".into());
+            }
+        };
         ACTIVE.store(reply.guard.active, Ordering::SeqCst);
+        KNOWN.store(reply.guard.known, Ordering::SeqCst);
         if let Some(error) = reply.error {
             return Err(error);
         }
@@ -374,6 +388,7 @@ mod native {
     pub fn cached() -> crate::guard::GuardView {
         crate::guard::GuardView {
             active: ACTIVE.load(Ordering::SeqCst),
+            known: KNOWN.load(Ordering::SeqCst),
         }
     }
     fn handle(request: Request) -> Result<(), String> {
@@ -428,17 +443,7 @@ mod native {
                 }
                 Ok(())
             }
-            Request::Repair {} => {
-                // Remove only our deterministic WFP keys, even if service shutdown fails.
-                let stop = crate::tunnel::backend()
-                    .disconnect()
-                    .map_err(|error| error.to_string());
-                crate::guard::disable()?;
-                if stop.is_ok() {
-                    crate::storage::remove_machine_service_profile()?;
-                }
-                stop
-            }
+            Request::Repair {} => crate::cleanup::run().map_err(|error| error.to_string()),
             Request::InstallWireguard {} => {
                 tauri::async_runtime::block_on(crate::installer::install())
             }
@@ -446,6 +451,18 @@ mod native {
     }
     pub fn run() -> bool {
         let args: Vec<String> = std::env::args().collect();
+        if args.len() == 2 && args[1] == "--diagnostics" {
+            let result = tauri::async_runtime::block_on(crate::diagnostics::report(
+                &crate::setup::AppState::default(),
+            ));
+            match result {
+                Ok(report) => {
+                    println!("{report}");
+                    std::process::exit(0);
+                }
+                Err(_) => std::process::exit(1),
+            }
+        }
         if args.len() == 2 && args[1] == "--validate-protection" {
             let result = if unsafe { IsUserAnAdmin() } != 0 {
                 crate::storage::machine_folder().and_then(|_| crate::guard::validate())
@@ -456,6 +473,16 @@ mod native {
                 eprintln!("{error}");
             }
             std::process::exit(if result.is_ok() { 0 } else { 1 });
+        }
+        if args.len() == 2 && args[1] == "--cleanup-for-uninstall" {
+            // NSIS per-machine uninstall is already elevated. Never open GUI/UAC here.
+            if unsafe { IsUserAnAdmin() } == 0 {
+                std::process::exit(23);
+            }
+            std::process::exit(match crate::cleanup::run() {
+                Ok(()) => 0,
+                Err(error) => error.exit_code(),
+            });
         }
         if args.len() == 2 && args[1] == "--restore-internet" {
             let result = if unsafe { IsUserAnAdmin() } != 0 {
@@ -523,9 +550,10 @@ mod native {
                 let result = handle(request);
                 let guard = crate::guard::view();
                 let reply = Reply {
-                    guard: guard
-                        .clone()
-                        .unwrap_or(crate::guard::GuardView { active: true }),
+                    guard: guard.clone().unwrap_or(crate::guard::GuardView {
+                        active: true,
+                        known: false,
+                    }),
                     error: result.err().or_else(|| guard.err()),
                 };
                 if write_frame(&mut pipe, &reply).is_err() {

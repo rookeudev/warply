@@ -1,4 +1,4 @@
-# Security model — v0.2.2
+# Security model — v0.2.4
 
 Warply has additional safeguards, but this is not a claim of complete security or a full independent audit. Source secrecy is not a security control.
 
@@ -54,3 +54,11 @@ The 0.2.1 checks also cover dual-stack verification requirements, strict helper 
 ## 0.2.2 storage correction
 
 Held handles used to update protected directory/file DACLs now request READ_CONTROL as well as WRITE_DAC, avoiding Windows access-denied failures. Machine service folders keep SYSTEM/Administrators scope throughout secure saves instead of being temporarily passed through user-folder protection. A normal-user regression test protects both a directory and file and repeats the operation. Native helper preflight also checks the actual protected service folder. No account reset or profile deletion is required.
+
+## 0.2.4 cleanup and diagnostic corrections
+
+Uninstall uses a dedicated already-elevated headless cleanup action, with distinct exit codes for service, WFP, storage, and elevation failures. Cleanup attempts Warply's rule removal even if service shutdown fails, but retains the service copy when the service could still need it. Removing an absent service copy never creates/reprotects a directory. Unknown protection after a helper failure is reported as unknown; it is not presented as confirmed inactive or active.
+
+Interactive repair upgrades from installed 0.2.1 restart the same new installer with /UPDATE, avoiding the old uninstaller's READ_CONTROL defect. This mechanism was tested in an isolated NSIS callback fixture against the installed 0.2.1 registration, without replacing the installed application. Native cleanup was tested twice with no installed tunnel service and the encrypted user profile hash remained unchanged. These checks do not replace a full connected/install/uninstall/reboot VM acceptance run.
+
+Local diagnostics now produce partial reports for missing/unreadable profiles, unavailable network inspection, and unknown service/protection state. No private configuration or raw error output is included. Explicit `warply.exe --diagnostics` prints the same limited local report without opening the GUI; it does not elevate or perform registration. A fresh diagnostic run clears the old report before starting, so a failed run cannot leave a stale report available for copying.

@@ -49,3 +49,7 @@ Security settings, explicit protection status/Restore internet, local diagnostic
 The settings overview now groups connection/protection, personal preferences, and account/app management. Compact secondary tiles keep every category visible at 380 × 560. Section shortcuts show the current category and provide direct navigation; All settings, Back, Escape, and Alt+Left remain available. Screenshots were inspected in English/light and Czech/dark.
 
 Brief view, section, status, hover, and press animations use CSS and honor prefers-reduced-motion. Forced-color focus and active-category styling remain supported. Browser fixtures exercised category switching, active navigation, reduced motion, diagnostics/copy, emergency recovery, no automatic update requests with opt-out, and no green status for incomplete tunnel verification. No network or storage privilege behavior changed.
+
+## 0.2.4 recovery UI
+
+Error screens link directly to Diagnostics & recovery. Connecting exposes a cancel action; OFF stays available for a running service even when WireGuard.exe disappears. Protection inspection failure is labeled unknown. Oversized error/main-screen content aligns safely for scrolling. Diagnostics use their own busy label and remove stale reports on rerun. Browser fixtures exercised these cases alongside the previous language/theme/navigation checks.

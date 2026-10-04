@@ -335,7 +335,7 @@ pub(crate) async fn change_general(
         "close_to_tray" => settings.close_to_tray = enabled,
         "kill_switch" => {
             require_disconnected()?;
-            if crate::helper::cached().active {
+            if !crate::helper::cached().known || crate::helper::cached().active {
                 return Err("Select Restore internet before changing kill switch settings.".into());
             }
             settings.kill_switch = enabled;
