@@ -13,6 +13,14 @@ pub struct NetworkView {
 }
 
 #[cfg(target_os = "windows")]
+const EXPECTED_DNS_SCRIPT: &str = r#"
+# Windows PowerShell 5.1 emits a JSON array as one pipeline object.
+# Assign first so the pipeline enumerates individual DNS strings on 5.1 and 7.
+$expectedValues=ConvertFrom-Json $env:WARPLY_EXPECTED_DNS
+$expected=@($expectedValues | ForEach-Object { [Net.IPAddress]::Parse($_).ToString() })
+"#;
+
+#[cfg(target_os = "windows")]
 fn inspect_with_dns(dns: &[String]) -> Result<NetworkView, String> {
     let script = r#"$ErrorActionPreference='Stop'
 $v4=$false; $v6=$false; $luid=[uint64]0; $matches=$false
@@ -21,15 +29,15 @@ if ($adapter -and $adapter.InterfaceDescription -like '*WireGuard*' -and $adapte
   $luid=[uint64]$adapter.NetLuid
   try { $route=Find-NetRoute -RemoteIPAddress '9.9.9.9'; $v4=(@($route | Where-Object { $_.CimClass.CimClassName -eq 'MSFT_NetRoute' }).InterfaceIndex -contains $adapter.ifIndex) } catch {}
   try { $route=Find-NetRoute -RemoteIPAddress '2606:4700:4700::1111'; $v6=(@($route | Where-Object { $_.CimClass.CimClassName -eq 'MSFT_NetRoute' }).InterfaceIndex -contains $adapter.ifIndex) } catch {}
-  $expected=@(ConvertFrom-Json $env:WARPLY_EXPECTED_DNS | ForEach-Object { [Net.IPAddress]::Parse($_).ToString() })
+  __EXPECTED_DNS__
   $actual=@(Get-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex | ForEach-Object { $_.ServerAddresses } | ForEach-Object { [Net.IPAddress]::Parse($_).ToString() })
   $matches=($expected.Count -gt 0 -and $actual.Count -gt 0 -and @($actual | Where-Object { $_ -notin $expected }).Count -eq 0)
 }
 $other=@(Get-NetAdapter -IncludeHidden | Where-Object { $_.Status -eq 'Up' -and $_.Name -ne 'warply' -and $_.InterfaceDescription -match 'WireGuard|Wintun|OpenVPN|TAP-Windows|VPN' }).Count
 @{ipv4_tunnel=[bool]$v4;ipv6_tunnel=[bool]$v6;dns_matches=[bool]$matches;other_vpn_count=[int]$other;inspection_available=$true;tunnel_luid=$luid} | ConvertTo-Json -Compress
-"#;
+"#.replace("__EXPECTED_DNS__", EXPECTED_DNS_SCRIPT);
     let output = crate::tunnel::windows_powershell()
-        .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
         .env(
             "WARPLY_EXPECTED_DNS",
             serde_json::to_string(dns).map_err(|_| "Could not inspect DNS settings.")?,
@@ -147,6 +155,38 @@ fn inspected(available: bool, value: bool) -> &'static str {
 }
 #[cfg(test)]
 mod tests {
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_powershell_normalizes_dns_arrays_without_treating_them_as_one_address() {
+        for values in [
+            vec![],
+            vec!["1.1.1.1"],
+            vec![
+                "1.1.1.1",
+                "1.0.0.1",
+                "2606:4700:4700::1111",
+                "2606:4700:4700::1001",
+            ],
+        ] {
+            let script = format!("$ErrorActionPreference='Stop'; {}\nConvertTo-Json -InputObject @($expected) -Compress", super::EXPECTED_DNS_SCRIPT);
+            let output = crate::tunnel::windows_powershell()
+                .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+                .env(
+                    "WARPLY_EXPECTED_DNS",
+                    serde_json::to_string(&values).expect("test DNS JSON"),
+                )
+                .output()
+                .expect("Windows PowerShell is installed");
+            assert!(
+                output.status.success(),
+                "DNS normalization must work in the actual Windows shell"
+            );
+            let normalized: Vec<String> =
+                serde_json::from_slice(&output.stdout).expect("DNS result array");
+            assert_eq!(normalized, values);
+        }
+    }
+
     #[test]
     fn unavailable_inspection_never_reports_success_or_zero_as_a_verified_result() {
         assert_eq!(super::inspected(false, true), "unknown");

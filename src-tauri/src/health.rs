@@ -342,6 +342,32 @@ fn parse_trace(body: &str) -> HealthStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(target_os = "windows")]
+    #[test]
+    #[ignore = "requires an existing connected Warply tunnel and sends source-bound Cloudflare checks"]
+    fn live_tunnel_verification() {
+        tauri::async_runtime::block_on(async {
+            let (status, ipv4, ipv6, network) = probe().await;
+            assert!(network.inspection_available, "local inspection failed");
+            assert!(
+                network.ipv4_tunnel && network.ipv6_tunnel,
+                "tunnel routes missing"
+            );
+            assert!(network.dns_matches, "tunnel DNS mismatch");
+            assert_eq!(
+                ipv4,
+                HealthStatus::Verified,
+                "IPv4 source-bound proof failed"
+            );
+            assert_eq!(
+                ipv6,
+                HealthStatus::Verified,
+                "IPv6 source-bound proof failed"
+            );
+            assert_eq!(status, HealthStatus::Verified);
+        });
+    }
+
     #[test]
     fn dual_stack_proof_rejects_partial_routes_dns_mismatch_and_other_vpn() {
         let mut network = crate::diagnostics::NetworkView {
