@@ -43,3 +43,9 @@ Manual acceptance: install the EXE, search Start for Warply, launch it with tray
 ## 0.2.1 review
 
 Security settings, explicit protection status/Restore internet, local diagnostics, separate IPv4/IPv6 details, update opt-in, and availability banner were reviewed in English/light and Czech/dark fixtures. Diagnostics copying, default-off automatic checks, opt-in detection, and emergency recovery during a pending connection were exercised. Mocked UI tests do not establish live WFP or VPN behavior. See the Windows acceptance checklist.
+
+## 0.2.3 menu and motion
+
+The settings overview now groups connection/protection, personal preferences, and account/app management. Compact secondary tiles keep every category visible at 380 × 560. Section shortcuts show the current category and provide direct navigation; All settings, Back, Escape, and Alt+Left remain available. Screenshots were inspected in English/light and Czech/dark.
+
+Brief view, section, status, hover, and press animations use CSS and honor prefers-reduced-motion. Forced-color focus and active-category styling remain supported. Browser fixtures exercised category switching, active navigation, reduced motion, diagnostics/copy, emergency recovery, no automatic update requests with opt-out, and no green status for incomplete tunnel verification. No network or storage privilege behavior changed.

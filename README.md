@@ -40,7 +40,7 @@ Cloudflare WARP is a free service that encrypts your internet traffic. Setting i
 - **Local diagnostics.** Copy a report without keys, IP addresses, usernames, or automatic uploads.
 - **Simple loading screen.** Logo and status while automatic setup starts; errors open the normal recovery screen.
 - **Start menu.** The installer creates a searchable Warply shortcut. Manual launches open the window even when Windows logon is set to start in the tray.
-- **Organized settings.** Startup, connection, security, appearance, account, and updates have their own sections.
+- **Organized settings.** Startup, connection, protection, appearance, account, and updates have their own sections, with grouped navigation and direct category shortcuts. Brief animations respect Windows reduced-motion preferences.
 - **Signed updates.** Check manually or opt into daily checks; installation requires confirmation.
 - **Private.** No telemetry, analytics, usage history, crash uploads, or Warply server. Your private key stays on your PC. [Privacy details](docs/privacy.md).
 

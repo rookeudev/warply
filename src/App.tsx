@@ -91,17 +91,29 @@ export default function App() {
   }, [view, aboutReturn, settingsSection])
 
   useEffect(() => {
-    if (!snapshot?.settings.automatic_update_checks || snapshot.setup !== 'ready') return
+    if (
+      !snapshot?.settings.automatic_update_checks ||
+      snapshot.setup !== 'ready'
+    )
+      return
     let stopped = false
     async function check() {
       try {
-        const update = await invoke<AvailableUpdate | null>('automatic_update_check')
+        const update = await invoke<AvailableUpdate | null>(
+          'automatic_update_check',
+        )
         if (!stopped && update) setUpdateVersion(update.version)
-      } catch { /* Background failures stay quiet; manual checks show an error. */ }
+      } catch {
+        /* Background failures stay quiet; manual checks show an error. */
+      }
     }
     const timer = window.setTimeout(() => void check(), 5000)
     const interval = window.setInterval(() => void check(), 3600000)
-    return () => { stopped = true; window.clearTimeout(timer); window.clearInterval(interval) }
+    return () => {
+      stopped = true
+      window.clearTimeout(timer)
+      window.clearInterval(interval)
+    }
   }, [snapshot?.settings.automatic_update_checks, snapshot?.setup])
 
   function navigate(next: View) {
@@ -244,9 +256,9 @@ export default function App() {
                             ? 'networkMenu'
                             : settingsSection === 'security'
                               ? 'securityMenu'
-                            : settingsSection === 'advanced'
-                              ? 'advancedMenu'
-                              : 'appearance',
+                              : settingsSection === 'advanced'
+                                ? 'advancedMenu'
+                                : 'appearance',
                     )
                   : t('updatesAbout')}
               </h1>
@@ -257,8 +269,11 @@ export default function App() {
       </header>
 
       <main
+        key={view}
         ref={content}
-        className={view === 'main' ? 'main-view' : 'detail-view'}
+        className={
+          view === 'main' ? 'main-view view-enter' : 'detail-view view-enter'
+        }
       >
         {view === 'main' ? (
           <div className="connection-content">
@@ -270,15 +285,29 @@ export default function App() {
               onClick={() => void controls.toggle()}
             />
             <StatusBlock
+              key={title}
               title={title}
               secondary={secondary}
               error={failed && !connecting}
             />
-            {snapshot?.protection?.active && <div className="protection-notice" role="status">
-              <p>{t('protectionActive')}</p>
-              <button type="button" className="text-button" disabled={busy === 'restore'} onClick={() => void controls.restoreInternet()}>{t('restoreInternet')}</button>
-            </div>}
-            {updateVersion && <button type="button" className="text-button" onClick={openAbout}>{t('updateAvailable')} {updateVersion}</button>}
+            {snapshot?.protection?.active && (
+              <div className="protection-notice" role="status">
+                <p>{t('protectionActive')}</p>
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={busy === 'restore'}
+                  onClick={() => void controls.restoreInternet()}
+                >
+                  {t('restoreInternet')}
+                </button>
+              </div>
+            )}
+            {updateVersion && (
+              <button type="button" className="text-button" onClick={openAbout}>
+                {t('updateAvailable')} {updateVersion}
+              </button>
+            )}
             {setup === 'ready' && (
               <ConnectionDetails
                 snapshot={snapshot}
