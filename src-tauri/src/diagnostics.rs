@@ -75,8 +75,12 @@ pub fn inspect() -> Result<NetworkView, String> {
             .load()?
             .ok_or("No saved profile.")?,
     );
+    inspect_profile(&contents)
+}
+
+pub(crate) fn inspect_profile(contents: &str) -> Result<NetworkView, String> {
     inspect_with_dns(
-        &crate::network::field(&contents, "DNS")
+        &crate::network::field(contents, "DNS")
             .unwrap_or_default()
             .split(',')
             .map(|item| item.trim().to_string())

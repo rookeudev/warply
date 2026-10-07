@@ -59,7 +59,7 @@ fn updater(app: &tauri::AppHandle) -> Result<tauri_plugin_updater::Updater, Stri
 }
 
 fn validate_update(update: &tauri_plugin_updater::Update) -> Result<(), String> {
-    if !trusted_package(&update.download_url)
+    if !package_matches_version(&update.download_url, &update.version)
         || update.version.len() > 64
         || !update
             .version
@@ -71,8 +71,21 @@ fn validate_update(update: &tauri_plugin_updater::Update) -> Result<(), String> 
     Ok(())
 }
 
+fn package_matches_version(url: &updater_http::Url, version: &str) -> bool {
+    trusted_package(url)
+        && url.path()
+            == format!(
+                "/rookeudev/warply/releases/download/v{version}/Warply_{version}_x64-setup.exe"
+            )
+}
+
 #[tauri::command]
 pub async fn check_for_update(app: tauri::AppHandle) -> Result<Option<AvailableUpdate>, String> {
+    let state = app.state::<AppState>();
+    let _check = state
+        .update_check
+        .try_lock()
+        .map_err(|_| "An update check is already in progress.".to_string())?;
     let update = updater(&app)?.check().await.map_err(|_| {
         "Could not check for updates. Check your internet connection or try again later."
             .to_string()
@@ -88,6 +101,10 @@ pub async fn check_for_update(app: tauri::AppHandle) -> Result<Option<AvailableU
 #[tauri::command]
 pub async fn install_update(app: tauri::AppHandle) -> Result<bool, String> {
     let state = app.state::<AppState>();
+    let _check = state
+        .update_check
+        .try_lock()
+        .map_err(|_| "An update check is already in progress.".to_string())?;
     let _operation = state
         .operation
         .try_lock()
@@ -139,6 +156,24 @@ pub async fn install_update(app: tauri::AppHandle) -> Result<bool, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn installer_tag_filename_and_manifest_version_must_match() {
+        let expected = updater_http::Url::parse("https://github.com/rookeudev/warply/releases/download/v0.2.6/Warply_0.2.6_x64-setup.exe").expect("url");
+        assert!(package_matches_version(&expected, "0.2.6"));
+        assert!(!package_matches_version(&expected, "0.2.5"));
+        for path in [
+            "v0.2.6/Other_0.2.6_x64-setup.exe",
+            "v0.2.5/Warply_0.2.6_x64-setup.exe",
+            "v0.2.6/Warply_0.2.6_arm64-setup.exe",
+            "v0.2.6/Warply_0.2.6_x64-setup.exe?x=1",
+        ] {
+            let url = updater_http::Url::parse(&format!(
+                "https://github.com/rookeudev/warply/releases/download/{path}"
+            ))
+            .expect("url");
+            assert!(!package_matches_version(&url, "0.2.6"));
+        }
+    }
     #[test]
     fn update_urls_reject_other_repositories_credentials_and_insecure_hosts() {
         let good = "https://github.com/rookeudev/warply/releases/download/v0.4.0/Warply_0.4.0_x64-setup.exe";

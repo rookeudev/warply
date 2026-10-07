@@ -13,6 +13,15 @@ export type SetupStatus =
 export type TunnelSnapshot = {
   status: TunnelStatus
   health: {
+    issue?:
+      | 'inspection'
+      | 'routes'
+      | 'dns'
+      | 'conflict'
+      | 'not_warp'
+      | 'ipv4'
+      | 'ipv6'
+      | null
     status: 'unknown' | 'checking' | 'verified' | 'not_warp' | 'unavailable'
     duration_ms: number | null
     checked_ago_secs: number | null
@@ -58,6 +67,7 @@ export function useTunnel() {
   const requestId = useRef(0)
   const appliedId = useRef(0)
   const pollDelay = useRef(3000)
+  const pendingRefresh = useRef<Promise<void> | null>(null)
 
   const applySnapshot = useCallback((next: TunnelSnapshot, id: number) => {
     if (id >= appliedId.current) {
@@ -67,15 +77,22 @@ export function useTunnel() {
     }
   }, [])
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(() => {
+    if (pendingRefresh.current) return pendingRefresh.current
     const id = ++requestId.current
-    try {
-      const next = await invoke<TunnelSnapshot>('tunnel_snapshot')
-      applySnapshot(next, id)
-      setPollError(null)
-    } catch (cause) {
-      setPollError(String(cause))
-    }
+    const task = (async () => {
+      try {
+        const next = await invoke<TunnelSnapshot>('tunnel_snapshot')
+        applySnapshot(next, id)
+        if (id >= appliedId.current) setPollError(null)
+      } catch (cause) {
+        if (id >= appliedId.current) setPollError(String(cause))
+      } finally {
+        pendingRefresh.current = null
+      }
+    })()
+    pendingRefresh.current = task
+    return task
   }, [applySnapshot])
 
   useEffect(() => {

@@ -1,10 +1,10 @@
 {
-  "version": "0.2.5",
-  "notes": "Fix incorrect Connection not verified caused by Windows PowerShell 5.1 DNS array parsing. Verified on the affected live dual-stack WARP tunnel; no security checks weakened and no profile reset needed.",
+  "version": "0.2.6",
+  "notes": "Client hardening: exact signed update asset matching and sensitive authorization headers. Faster parallel dual-stack checks, coalesced status refreshes, and specific connection failure explanations. No telemetry or profile reset.",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUWZMc29sU09LaTNRY3RmUURXS3hRek5STVpqTllIcC93d1dLenlkeStOMVltM0RJeG00U3ZkQmt6WGlVTEFsV1BsTW1TME5LQXpObEJjTHBRK21iUGNQNzZWNVRkU0E0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMTQxODk3CWZpbGU6V2FycGx5XzAuMi41X3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjIuNQpQWlZSUnVQSVZuUWFjY1VUUVhqMVZQK1ZzR0dYbG1qNU9sQU9aNGYwcm1HYThjUWVSZWN2MXU5VTlRdUVINTR3eTgyUzh6S0diY0tzQjVqTWhFUWtDUT09Cg==",
-      "url": "https://github.com/rookeudev/warply/releases/download/v0.2.5/Warply_0.2.5_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUWZMc29sU09LaTVZa2t1dTh6VWhNNDJ5WkFqcEhMa2UwT1lxMnM2Q0RGR3d4Ym8xbFQ0Vy85c2hCemdVRVFuTW5tQm93OGV2UXVxbEhYZ2x5TnR2TW9Lc2YrNUM5Z0FVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNDAzMDE1CWZpbGU6V2FycGx5XzAuMi42X3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjIuNgpNNWVON1VmS2EvbjJTanhoNGtaSUZnM1NZdUVVcFdYNlFHaWllbmNyb0pPWGRrRkFDQlBkS3I3RzNKaTU2SERYUWxGSWVQQ2pVMktGaEpxb3FhRE1DQT09Cg==",
+      "url": "https://github.com/rookeudev/warply/releases/download/v0.2.6/Warply_0.2.6_x64-setup.exe"
     }
   }
 }

@@ -25,6 +25,7 @@ pub enum HealthStatus {
 
 #[derive(Clone, Serialize)]
 pub struct HealthView {
+    pub issue: Option<&'static str>,
     pub status: HealthStatus,
     pub duration_ms: Option<u64>,
     pub checked_ago_secs: Option<u64>,
@@ -102,6 +103,7 @@ impl HealthMonitor {
         let cache = self.0.lock().await;
         if service != TunnelStatus::Connected {
             return HealthView {
+                issue: None,
                 status: HealthStatus::Unknown,
                 duration_ms: None,
                 checked_ago_secs: None,
@@ -112,6 +114,11 @@ impl HealthMonitor {
         }
         let age = cache.checked_at.map(|at| at.elapsed().as_secs());
         HealthView {
+            issue: if age.is_some_and(|age| age >= INTERVAL.as_secs()) {
+                None
+            } else {
+                verification_issue(cache.status, cache.ipv4, cache.ipv6, &cache.network)
+            },
             status: if age.is_some_and(|age| age >= INTERVAL.as_secs()) {
                 HealthStatus::Checking
             } else {
@@ -217,7 +224,7 @@ async fn probe() -> (
         let preferred = crate::config::tunnel_source_address(&contents).map_err(|_| "Invalid tunnel address")?;
         let mut addresses: Vec<std::net::IpAddr> = crate::network::field(&contents, "Address").ok_or("Missing address")?.split(',').filter_map(|item| item.trim().split('/').next()?.parse().ok()).collect();
         addresses.sort_by_key(|address| *address != preferred);
-        let network = crate::diagnostics::inspect()?;
+        let network = crate::diagnostics::inspect_profile(&contents)?;
         // Ownership checks precede all source-bound requests. No unbound fallback.
         let output = tunnel::windows_powershell().args(["-NoProfile", "-NonInteractive", "-Command", "$ErrorActionPreference='Stop'; Get-NetIPAddress -InterfaceAlias 'warply' -AddressState Preferred | ForEach-Object { [Console]::WriteLine($_.IPAddress) }"]).output().map_err(|_| "Could not inspect the tunnel adapter")?;
         if !output.status.success() { return Err("Could not inspect the tunnel adapter".into()); }
@@ -232,15 +239,19 @@ async fn probe() -> (
             Default::default(),
         );
     };
-    let ipv4 = if network.ipv4_tunnel {
-        if let Some(address) = addresses.iter().find(|ip| ip.is_ipv4()) {
-            probe_address(*address).await
+    let ipv4_addresses = addresses.clone();
+    let ipv4_route = network.ipv4_tunnel;
+    let ipv4_task = tauri::async_runtime::spawn(async move {
+        if ipv4_route {
+            if let Some(address) = ipv4_addresses.iter().find(|ip| ip.is_ipv4()) {
+                probe_address(*address).await
+            } else {
+                HealthStatus::Unavailable
+            }
         } else {
             HealthStatus::Unavailable
         }
-    } else {
-        HealthStatus::Unavailable
-    };
+    });
     let ipv6 = if network.ipv6_tunnel {
         if let Some(address) = addresses.iter().find(|ip| ip.is_ipv6()) {
             probe_address(*address).await
@@ -250,7 +261,37 @@ async fn probe() -> (
     } else {
         HealthStatus::Unavailable
     };
+    let ipv4 = ipv4_task.await.unwrap_or(HealthStatus::Unavailable);
     (combined_status(ipv4, ipv6, &network), ipv4, ipv6, network)
+}
+
+fn verification_issue(
+    status: HealthStatus,
+    ipv4: HealthStatus,
+    ipv6: HealthStatus,
+    network: &crate::diagnostics::NetworkView,
+) -> Option<&'static str> {
+    if matches!(
+        status,
+        HealthStatus::Unknown | HealthStatus::Checking | HealthStatus::Verified
+    ) {
+        return None;
+    }
+    Some(if !network.inspection_available {
+        "inspection"
+    } else if !network.ipv4_tunnel || !network.ipv6_tunnel {
+        "routes"
+    } else if !network.dns_matches {
+        "dns"
+    } else if network.other_vpn_count != 0 {
+        "conflict"
+    } else if ipv4 == HealthStatus::NotWarp || ipv6 == HealthStatus::NotWarp {
+        "not_warp"
+    } else if ipv4 != HealthStatus::Verified {
+        "ipv4"
+    } else {
+        "ipv6"
+    })
 }
 
 fn combined_status(
@@ -342,6 +383,70 @@ fn parse_trace(body: &str) -> HealthStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn reasons_distinguish_partial_proof_and_are_hidden_for_pending_or_verified_checks() {
+        let mut network = crate::diagnostics::NetworkView {
+            inspection_available: true,
+            ipv4_tunnel: true,
+            ipv6_tunnel: true,
+            dns_matches: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            verification_issue(
+                HealthStatus::Unavailable,
+                HealthStatus::Verified,
+                HealthStatus::Unavailable,
+                &network
+            ),
+            Some("ipv6")
+        );
+        for status in [
+            HealthStatus::Unknown,
+            HealthStatus::Checking,
+            HealthStatus::Verified,
+        ] {
+            assert_eq!(
+                verification_issue(
+                    status,
+                    HealthStatus::Unavailable,
+                    HealthStatus::Unavailable,
+                    &network
+                ),
+                None
+            );
+        }
+        network.dns_matches = false;
+        assert_eq!(
+            verification_issue(
+                HealthStatus::Unavailable,
+                HealthStatus::Verified,
+                HealthStatus::Verified,
+                &network
+            ),
+            Some("dns")
+        );
+        network.ipv6_tunnel = false;
+        assert_eq!(
+            verification_issue(
+                HealthStatus::Unavailable,
+                HealthStatus::Verified,
+                HealthStatus::Verified,
+                &network
+            ),
+            Some("routes")
+        );
+        network.inspection_available = false;
+        assert_eq!(
+            verification_issue(
+                HealthStatus::Unavailable,
+                HealthStatus::Unavailable,
+                HealthStatus::Unavailable,
+                &network
+            ),
+            Some("inspection")
+        );
+    }
     #[cfg(target_os = "windows")]
     #[test]
     #[ignore = "requires an existing connected Warply tunnel and sends source-bound Cloudflare checks"]

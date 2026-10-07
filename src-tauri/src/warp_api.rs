@@ -134,14 +134,15 @@ pub async fn register(public_key: &str) -> Result<TunnelDetails, ApiError> {
 
     // wgcf performs this authenticated request after registration to obtain
     // the current interface addresses and WireGuard peer.
+    let authorization = zeroize::Zeroizing::new(format!("Bearer {}", registration.token));
+    let mut authorization_header =
+        header::HeaderValue::from_str(&authorization).map_err(|_| ApiError::Changed)?;
+    authorization_header.set_sensitive(true);
     let device = read_json::<Device>(
         client
             .get(format!("{BASE_URL}/{API_VERSION}/reg/{}", registration.id))
             .header("CF-Client-Version", CLIENT_VERSION)
-            .header(
-                header::AUTHORIZATION,
-                format!("Bearer {}", registration.token),
-            )
+            .header(header::AUTHORIZATION, authorization_header)
             .header(header::CONNECTION, "Keep-Alive")
             .send()
             .await
@@ -166,6 +167,7 @@ impl Drop for Registration {
     fn drop(&mut self) {
         use zeroize::Zeroize;
         self.token.zeroize();
+        self.id.zeroize();
     }
 }
 

@@ -1,6 +1,10 @@
-# Security model — v0.2.4
+# Security model — v0.2.6
 
 Warply has additional safeguards, but this is not a claim of complete security or a full independent audit. Source secrecy is not a security control.
+
+## 0.2.6 client hardening
+
+Update URLs must match the manifest version, exact repository release tag and x64 installer filename in addition to the existing signed-version and signature validation. Concurrent update checks are rejected in Rust. Registration authorization headers are marked sensitive and temporary bearer/ID allocations are zeroized; third-party copies may still exist. Status polling shares pending requests and ignores outdated poll failures. Dual-stack probes run concurrently after local ownership checks and reuse one decrypted profile. Failed verification has a limited, non-secret reason. See [0.2.6 release notes and acceptance checks](release-v0.2.6.md).
 
 ## Connection status
 

@@ -1,4 +1,16 @@
 export const en = {
+  issueInspection: 'Windows network inspection failed. Run local diagnostics.',
+  issueRoutes:
+    'IPv4 or IPv6 is not routed through Warply. Reconnect and check other VPNs.',
+  issueDns:
+    'Tunnel DNS differs from the saved configuration. Reconnect to apply your DNS settings.',
+  issueConflict:
+    'Another active VPN adapter was detected. Disconnect it and check again.',
+  issueNotWarp: 'Cloudflare did not confirm WARP traffic through the tunnel.',
+  issueIpv4:
+    'The IPv4 check could not reach or verify WARP. Recheck your connection.',
+  issueIpv6:
+    'The IPv6 check could not reach or verify WARP. Full protection is not confirmed.',
   runningDiagnostics: 'Checking this computer…',
   troubleshooting: 'Diagnostics & recovery',
   cancelConnection: 'Cancel connection',
@@ -207,6 +219,19 @@ export type Language = 'en' | 'cs'
 export type Translator = (key: MessageKey) => string
 
 export const cs: Record<MessageKey, string> = {
+  issueInspection:
+    'Kontrola sítě ve Windows selhala. Spusťte místní diagnostiku.',
+  issueRoutes:
+    'IPv4 nebo IPv6 není směrováno přes Warply. Připojte se znovu a zkontrolujte ostatní VPN.',
+  issueDns:
+    'DNS tunelu se liší od uložené konfigurace. Připojte se znovu, aby se nastavení DNS použilo.',
+  issueConflict:
+    'Byl nalezen další aktivní VPN adaptér. Odpojte ho a opakujte kontrolu.',
+  issueNotWarp: 'Cloudflare nepotvrdil provoz WARP přes tunel.',
+  issueIpv4:
+    'Kontrola IPv4 nedokázala dosáhnout nebo ověřit WARP. Opakujte kontrolu připojení.',
+  issueIpv6:
+    'Kontrola IPv6 nedokázala dosáhnout nebo ověřit WARP. Úplná ochrana není potvrzena.',
   runningDiagnostics: 'Kontroluji tento počítač…',
   troubleshooting: 'Diagnostika a obnova',
   cancelConnection: 'Zrušit připojování',

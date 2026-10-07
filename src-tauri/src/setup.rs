@@ -30,6 +30,7 @@ pub struct SetupView {
 }
 
 pub struct AppState {
+    pub update_check: Mutex<()>,
     pub health: crate::health::HealthMonitor,
     pub operation: Mutex<()>,
     pub view: Mutex<SetupView>,
@@ -40,6 +41,7 @@ pub struct AppState {
 impl Default for AppState {
     fn default() -> Self {
         Self {
+            update_check: Mutex::new(()),
             health: crate::health::HealthMonitor::default(),
             operation: Mutex::new(()),
             desired_connected: AtomicBool::new(false),
