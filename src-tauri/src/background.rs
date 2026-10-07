@@ -459,6 +459,10 @@ pub fn notify_unverified(settings: &storage::Settings) {
     notify_message(settings, 2);
 }
 
+pub fn notify_update(settings: &storage::Settings) {
+    notify_message(settings, 3);
+}
+
 fn notify_message(settings: &storage::Settings, kind: u8) {
     if !settings.notifications {
         return;
@@ -466,6 +470,10 @@ fn notify_message(settings: &storage::Settings, kind: u8) {
     #[cfg(target_os = "windows")]
     {
         let text = match (settings.language.as_str(), kind) {
+            ("cs", 3) => {
+                "Je dostupná nová aktualizace Warply. Otevřete aplikaci a zkontrolujte Aktualizace."
+            }
+            (_, 3) => "A new Warply update is available. Open the app and review Updates.",
             ("cs", 1) => "Připojení se nepodařilo obnovit. Otevřete Warply a zkuste to znovu.",
             ("cs", 0) => "Připojení bylo přerušeno. Warply se pokouší připojit znovu.",
             (_, 1) => "Could not reconnect. Open Warply and try again.",

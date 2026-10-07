@@ -146,7 +146,8 @@ pub async fn report(state: &crate::setup::AppState) -> Result<String, String> {
     let check =
         serde_json::to_string(&health.status).map_err(|_| "Could not prepare diagnostics.")?;
     let guard = crate::helper::cached();
-    Ok(format!("Warply {}\nWindows\nService: {service_text}\nProfile: {profile}\nWireGuard: {wireguard}\nWARP check: {check}\nCheck age (seconds): {:?}\nNetwork inspection available: {}\nIPv4 route through Warply: {}\nIPv6 route through Warply: {}\nDNS matches configured servers: {}\nOther active VPN adapters: {}\nProtection: {}\nGUI elevated: false\n\nSuggested next step: {}\n\nLocal report only. No keys, config, IP addresses, network names, account IDs or raw logs. Unknown inspection is not proof of safety. Route/DNS checks do not certify every application's traffic or external DNS leak prevention.", env!("CARGO_PKG_VERSION"), health.checked_ago_secs, network.inspection_available, inspected(network.inspection_available, network.ipv4_tunnel), inspected(network.inspection_available, network.ipv6_tunnel), inspected(network.inspection_available, network.dns_matches), if network.inspection_available { network.other_vpn_count.to_string() } else { "unknown".into() }, if !guard.known { "unknown (helper unavailable or check pending)" } else if guard.active { "active" } else { "inactive" }, if !guard.known { "Use Restore internet to restart the helper and verify protection." } else if guard.active { "Use Restore internet before uninstalling, or reconnect with protection enabled." } else if profile == "missing" { "Retry automatic setup or import a profile in Account & advanced." } else if !network.inspection_available { "Retry diagnostics; inspect WireGuard installation and the saved profile." } else { "No active Warply protection detected. Use the latest installer if an old uninstaller fails." }))
+    let check = check.trim_matches('"');
+    Ok(format!("Warply {}\nWindows\nService: {service_text}\nProfile: {profile}\nWireGuard: {wireguard}\nWARP check: {check}\nCheck age (seconds): {}\nNetwork inspection available: {}\nIPv4 route through Warply: {}\nIPv6 route through Warply: {}\nDNS matches configured servers: {}\nOther active VPN adapters: {}\nKill switch: {}\nGUI elevated: false\n\nSuggested next step: {}\n\nLocal report only. No keys, config, IP addresses, network names, account IDs or raw logs. Unknown inspection is not proof of safety. Route/DNS checks do not certify every application's traffic or external DNS leak prevention.", env!("CARGO_PKG_VERSION"), health.checked_ago_secs.map(|age| age.to_string()).unwrap_or_else(|| "not checked".into()), network.inspection_available, inspected(network.inspection_available, network.ipv4_tunnel), inspected(network.inspection_available, network.ipv6_tunnel), inspected(network.inspection_available, network.dns_matches), if network.inspection_available { network.other_vpn_count.to_string() } else { "unknown".into() }, if !guard.known { "unknown (helper unavailable or check pending)" } else if guard.active { "active" } else { "inactive" }, suggestion(service, health.status, &guard, profile, &network)))
 }
 fn inspected(available: bool, value: bool) -> &'static str {
     if !available {
@@ -157,8 +158,71 @@ fn inspected(available: bool, value: bool) -> &'static str {
         "no"
     }
 }
+
+fn suggestion(
+    service: Option<crate::tunnel::TunnelStatus>,
+    health: crate::health::HealthStatus,
+    guard: &crate::guard::GuardView,
+    profile: &str,
+    network: &NetworkView,
+) -> &'static str {
+    if service == Some(crate::tunnel::TunnelStatus::Connected)
+        && health == crate::health::HealthStatus::Verified
+    {
+        if !guard.known {
+            "WARP connection verified. Kill-switch state could not be checked; run diagnostics again."
+        } else if guard.active {
+            "WARP connection verified. Kill switch active. No repair is needed."
+        } else {
+            "WARP connection verified. Kill switch is off; optional protection can be enabled in Settings. No repair is needed."
+        }
+    } else if !guard.known {
+        "Kill-switch state is unknown. Retry diagnostics; use Restore internet if normal internet access is blocked."
+    } else if guard.active && service != Some(crate::tunnel::TunnelStatus::Connected) {
+        "Kill switch is active without a running tunnel. Reconnect, or use Restore internet to unblock normal internet access."
+    } else if profile == "missing" {
+        "Retry automatic setup or import a profile in Account & advanced."
+    } else if !network.inspection_available {
+        "Retry diagnostics; inspect WireGuard installation and the saved profile."
+    } else if service == Some(crate::tunnel::TunnelStatus::Connected) {
+        "The service is running. Check Connection details for the failed or pending WARP verification."
+    } else {
+        "Warply is disconnected. Connect when you want to use WARP."
+    }
+}
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn verified_connection_never_receives_uninstall_or_restore_advice() {
+        let network = super::NetworkView::default();
+        for active in [false, true] {
+            let guard = crate::guard::GuardView {
+                active,
+                known: true,
+            };
+            let advice = super::suggestion(
+                Some(crate::tunnel::TunnelStatus::Connected),
+                crate::health::HealthStatus::Verified,
+                &guard,
+                "readable encrypted profile",
+                &network,
+            );
+            assert!(advice.contains("No repair is needed"));
+            assert!(!advice.contains("Restore internet") && !advice.contains("uninstall"));
+        }
+        let guard = crate::guard::GuardView {
+            active: true,
+            known: true,
+        };
+        assert!(super::suggestion(
+            Some(crate::tunnel::TunnelStatus::Disconnected),
+            crate::health::HealthStatus::Unknown,
+            &guard,
+            "readable encrypted profile",
+            &network
+        )
+        .contains("unblock"));
+    }
     #[cfg(target_os = "windows")]
     #[test]
     fn windows_powershell_normalizes_dns_arrays_without_treating_them_as_one_address() {

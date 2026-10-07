@@ -1,6 +1,10 @@
-# Security model — v0.2.6
+# Security model — v0.2.7
 
 Warply has additional safeguards, but this is not a claim of complete security or a full independent audit. Source secrecy is not a security control.
+
+## 0.2.7 bug fixes
+
+The privileged helper changes only the NLM network display name for networks exclusively owned by Warply's verified adapter GUID, without changing network category or physical Wi-Fi names. Native COM bindings use the existing Windows dependency version. UI progress exposes only stage/byte counts; signature verification still precedes tunnel shutdown. Optional update discovery notifications use local Windows notifications and respect the user's notification and daily-check settings. See [release notes and checks](release-v0.2.7.md).
 
 ## 0.2.6 client hardening
 

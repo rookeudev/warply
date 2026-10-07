@@ -393,7 +393,10 @@ mod native {
     }
     fn handle(request: Request) -> Result<(), String> {
         match request {
-            Request::Inspect {} => Ok(()),
+            Request::Inspect {} => {
+                crate::network_name::maintain(false);
+                Ok(())
+            }
             Request::Reconcile {} => {
                 if crate::guard::view()?.active
                     && crate::tunnel::backend()
@@ -429,6 +432,7 @@ mod native {
                     let luid = crate::diagnostics::tunnel_luid()?;
                     crate::guard::enable(Some(luid))?;
                 }
+                crate::network_name::maintain(true);
                 Ok(())
             }
             Request::Stop { unlock } => {

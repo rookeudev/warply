@@ -1,10 +1,10 @@
 {
-  "version": "0.2.6",
-  "notes": "Client hardening: exact signed update asset matching and sensitive authorization headers. Faster parallel dual-stack checks, coalesced status refreshes, and specific connection failure explanations. No telemetry or profile reset.",
+  "version": "0.2.7",
+  "notes": "0.2.6 bug fixes: Windows network name Warply, clearer verified/kill-switch diagnostics, simpler navigation, update banners, native opt-in notifications and download/signature progress. Internal version 0.2.7 ensures updater discovery.",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUWZMc29sU09LaTVZa2t1dTh6VWhNNDJ5WkFqcEhMa2UwT1lxMnM2Q0RGR3d4Ym8xbFQ0Vy85c2hCemdVRVFuTW5tQm93OGV2UXVxbEhYZ2x5TnR2TW9Lc2YrNUM5Z0FVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNDAzMDE1CWZpbGU6V2FycGx5XzAuMi42X3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjIuNgpNNWVON1VmS2EvbjJTanhoNGtaSUZnM1NZdUVVcFdYNlFHaWllbmNyb0pPWGRrRkFDQlBkS3I3RzNKaTU2SERYUWxGSWVQQ2pVMktGaEpxb3FhRE1DQT09Cg==",
-      "url": "https://github.com/rookeudev/warply/releases/download/v0.2.6/Warply_0.2.6_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUWZMc29sU09LaSt6UjdLbUkvU3plUW1RWEtGMG1XcnhadUhuWTdVMU5neG5tcmNpOXFQcDZ6TlVJT1l0S3lBZEpQU3o1WlVXY3J6ZWtMNWVuWFd4dTJBUCtZb3MxNWdnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNDA0MjA3CWZpbGU6V2FycGx5XzAuMi43X3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjIuNwpEK09CSVd4Qm85Z0tCZngrekE4bTdpWFN5ODRuNHhJdHpYTEFtaVZXVDV3WGJOa25jaVM2c2tBMXQrOUxvSzRkQ0ZPWlQ2aHdnS0pvVWdGeEljRGdDZz09Cg==",
+      "url": "https://github.com/rookeudev/warply/releases/download/v0.2.7/Warply_0.2.7_x64-setup.exe"
     }
   }
 }

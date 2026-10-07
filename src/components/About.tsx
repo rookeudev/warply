@@ -10,6 +10,7 @@ type Props = {
   updateVersion: string | null
   updateBusy: 'checking' | 'installing' | null
   updateMessage: string | null
+  progress: { stage: string; downloaded: number; total: number | null } | null
   onCheckUpdates: () => void
   onInstallUpdate: () => void
 }
@@ -20,9 +21,22 @@ export default function About({
   updateVersion,
   updateBusy,
   updateMessage,
+  progress,
   onCheckUpdates,
   onInstallUpdate,
 }: Props) {
+  const stageKeys = {
+    checking: 'checkingUpdates',
+    confirming: 'updateConfirming',
+    downloading: 'updateDownloading',
+    verifying: 'updateVerifying',
+    installing: 'updateStarting',
+  } as const
+  const stage = progress?.stage as keyof typeof stageKeys | undefined
+  const percent =
+    progress?.total && progress.total > 0
+      ? Math.min(100, Math.floor((progress.downloaded * 100) / progress.total))
+      : null
   return (
     <div className="about-content">
       <p className="about-intro">{t('notesIntro')}</p>
@@ -64,6 +78,23 @@ export default function About({
             {updateMessage}
           </p>
         )}
+        {updateBusy === 'installing' && (
+          <div className="update-progress" role="status" aria-live="polite">
+            <p>
+              {stage && stage in stageKeys
+                ? t(stageKeys[stage])
+                : t('installingUpdate')}
+              {stage === 'downloading' && percent != null ? ` ${percent}%` : ''}
+            </p>
+            <progress
+              max={100}
+              value={
+                stage === 'downloading' && percent != null ? percent : undefined
+              }
+              aria-label={t('installingUpdate')}
+            />
+          </div>
+        )}
         <SettingRow label={t('license')}>
           <span className="setting-value">Warply Source-Available</span>
         </SettingRow>
@@ -75,15 +106,15 @@ export default function About({
           </span>
         </button>
       </SettingsList>
-      <section className="about-notes" aria-label={t('notes')}>
-        <h2>{t('notes')}</h2>
+      <details className="about-notes advanced-disclosure">
+        <summary>{t('notes')}</summary>
         <p>{t('noteLocation')}</p>
         <p>{t('privacyNoCollection')}</p>
         <p>{t('privacyStorage')}</p>
         <p>{t('privacyNetwork')}</p>
         <p>{t('notePrivacy')}</p>
         <p>{t('noteGeo')}</p>
-      </section>
+      </details>
     </div>
   )
 }

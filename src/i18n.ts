@@ -1,4 +1,9 @@
 export const en = {
+  reviewUpdate: 'Review and install',
+  updateConfirming: 'Waiting for your confirmation…',
+  updateDownloading: 'Downloading update…',
+  updateVerifying: 'Verifying update signature…',
+  updateStarting: 'Starting installer…',
   issueInspection: 'Windows network inspection failed. Run local diagnostics.',
   issueRoutes:
     'IPv4 or IPv6 is not routed through Warply. Reconnect and check other VPNs.',
@@ -28,7 +33,7 @@ export const en = {
   restoreInternet: 'Restore internet',
   restoreDescription:
     'Stops Warply and removes its own protection rules. Your normal connection can then carry traffic.',
-  notifications: 'Connection notifications',
+  notifications: 'Connection & update notifications',
   automaticUpdateChecks: 'Check for updates automatically',
   automaticUpdatesDescription:
     'Optional GitHub check, at most once a day while Warply is open. Installation still requires confirmation.',
@@ -219,6 +224,11 @@ export type Language = 'en' | 'cs'
 export type Translator = (key: MessageKey) => string
 
 export const cs: Record<MessageKey, string> = {
+  reviewUpdate: 'Zobrazit a nainstalovat',
+  updateConfirming: 'Čekání na vaše potvrzení…',
+  updateDownloading: 'Stahování aktualizace…',
+  updateVerifying: 'Ověřování podpisu aktualizace…',
+  updateStarting: 'Spouštění instalátoru…',
   issueInspection:
     'Kontrola sítě ve Windows selhala. Spusťte místní diagnostiku.',
   issueRoutes:
@@ -248,7 +258,7 @@ export const cs: Record<MessageKey, string> = {
   restoreInternet: 'Obnovit internet',
   restoreDescription:
     'Zastaví Warply a odstraní jeho ochranná pravidla. Provoz potom může používat běžné připojení.',
-  notifications: 'Oznámení o připojení',
+  notifications: 'Upozornění na připojení a aktualizace',
   automaticUpdateChecks: 'Automaticky kontrolovat aktualizace',
   automaticUpdatesDescription:
     'Volitelná kontrola GitHubu nejvýše jednou denně během běhu Warply. Instalaci vždy potvrzujete.',

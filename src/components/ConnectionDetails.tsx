@@ -25,6 +25,23 @@ type Props = {
   onRecheck?: () => void
 }
 
+export function healthIssueLabel(
+  snapshot: TunnelSnapshot | null,
+  t: Translator,
+) {
+  const issue = snapshot?.health.issue
+  const keys = {
+    inspection: 'issueInspection',
+    routes: 'issueRoutes',
+    dns: 'issueDns',
+    conflict: 'issueConflict',
+    not_warp: 'issueNotWarp',
+    ipv4: 'issueIpv4',
+    ipv6: 'issueIpv6',
+  } as const
+  return issue && issue in keys ? t(keys[issue]) : null
+}
+
 export default function ConnectionDetails({
   snapshot,
   t,

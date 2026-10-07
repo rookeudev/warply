@@ -30,6 +30,8 @@ pub struct SetupView {
 }
 
 pub struct AppState {
+    pub update_progress: std::sync::Mutex<crate::updater::UpdateProgress>,
+    pub update_notified: Mutex<Option<String>>,
     pub update_check: Mutex<()>,
     pub health: crate::health::HealthMonitor,
     pub operation: Mutex<()>,
@@ -41,6 +43,8 @@ pub struct AppState {
 impl Default for AppState {
     fn default() -> Self {
         Self {
+            update_progress: std::sync::Mutex::new(crate::updater::UpdateProgress::default()),
+            update_notified: Mutex::new(None),
             update_check: Mutex::new(()),
             health: crate::health::HealthMonitor::default(),
             operation: Mutex::new(()),

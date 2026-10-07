@@ -11,6 +11,44 @@ pub struct AvailableUpdate {
     version: String,
 }
 
+#[derive(Clone, Serialize)]
+pub struct UpdateProgress {
+    stage: &'static str,
+    downloaded: u64,
+    total: Option<u64>,
+}
+impl Default for UpdateProgress {
+    fn default() -> Self {
+        Self {
+            stage: "idle",
+            downloaded: 0,
+            total: None,
+        }
+    }
+}
+struct ProgressReset<'a>(&'a std::sync::Mutex<UpdateProgress>);
+impl Drop for ProgressReset<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut value) = self.0.lock() {
+            *value = UpdateProgress::default();
+        }
+    }
+}
+fn progress_stage(state: &AppState, stage: &'static str) {
+    if let Ok(mut progress) = state.update_progress.lock() {
+        progress.stage = stage;
+    }
+}
+
+#[tauri::command]
+pub fn update_progress(state: tauri::State<'_, AppState>) -> Result<UpdateProgress, String> {
+    state
+        .update_progress
+        .lock()
+        .map(|progress| progress.clone())
+        .map_err(|_| "Could not read update progress.".into())
+}
+
 fn trusted_redirect(url: &updater_http::Url) -> bool {
     url.scheme() == "https"
         && url.username().is_empty()
@@ -109,6 +147,8 @@ pub async fn install_update(app: tauri::AppHandle) -> Result<bool, String> {
         .operation
         .try_lock()
         .map_err(|_| "Another operation is in progress.".to_string())?;
+    let _reset = ProgressReset(&state.update_progress);
+    progress_stage(&state, "checking");
     let mut update = updater(&app)?
         .check()
         .await
@@ -117,17 +157,31 @@ pub async fn install_update(app: tauri::AppHandle) -> Result<bool, String> {
     validate_update(&update)?;
     update.timeout = Some(Duration::from_secs(120));
     let version = update.version.clone();
+    progress_stage(&state, "confirming");
     let consent = tauri::async_runtime::spawn_blocking(move || crate::import_dialog::confirm(&format!("Install Warply {version}? The tunnel will be disconnected after the update is downloaded and verified."))).await.map_err(|_| "Could not confirm the update.".to_string())??;
     if !consent {
         return Ok(false);
     }
 
-    let bytes = update.download(|_, _| {}, || {}).await.map_err(|_| {
-        "The update could not be downloaded or verified. Try again later.".to_string()
-    })?;
+    progress_stage(&state, "downloading");
+    let bytes = update
+        .download(
+            |size, total| {
+                if let Ok(mut progress) = state.update_progress.lock() {
+                    progress.downloaded = progress.downloaded.saturating_add(size as u64);
+                    progress.total = total;
+                }
+            },
+            || progress_stage(&state, "verifying"),
+        )
+        .await
+        .map_err(|_| {
+            "The update could not be downloaded or verified. Try again later.".to_string()
+        })?;
 
     // Only interrupt an active tunnel after the update has been downloaded
     // and its Tauri signature has been verified.
+    progress_stage(&state, "installing");
     let reconnect = state.desired_connected.swap(false, Ordering::SeqCst);
     tauri::async_runtime::spawn_blocking(|| {
         crate::helper::stop(true)?;
@@ -229,5 +283,17 @@ pub async fn automatic_update_check(
         crate::storage::save_settings(&settings)?;
         view.settings = settings;
     }
-    check_for_update(app).await
+    let update = check_for_update(app.clone()).await?;
+    if let Some(ref available) = update {
+        let mut notified = state.update_notified.lock().await;
+        if notified.as_ref() != Some(&available.version) {
+            *notified = Some(available.version.clone());
+            let settings = state.view.lock().await.settings.clone();
+            let _ = tauri::async_runtime::spawn_blocking(move || {
+                crate::background::notify_update(&settings)
+            })
+            .await;
+        }
+    }
+    Ok(update)
 }

@@ -15,6 +15,7 @@ mod installer;
 mod instance;
 mod keys;
 mod network;
+mod network_name;
 mod protection;
 mod setup;
 mod storage;
@@ -97,6 +98,7 @@ pub fn run() {
             updater::check_for_update,
             updater::automatic_update_check,
             updater::install_update,
+            updater::update_progress,
             commands::tunnel_snapshot,
             commands::recheck_connection,
             commands::restore_internet,

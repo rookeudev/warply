@@ -7,7 +7,6 @@ import {
   RotateCw,
   Shield,
   KeyRound,
-  Grid2X2,
   SlidersHorizontal,
   Upload,
 } from 'lucide-react'
@@ -34,6 +33,7 @@ type Props = {
   section: SettingsSection
   onSection: (section: SettingsSection) => void
   onAbout: () => void
+  updateVersion: string | null
 }
 
 export default function Settings({
@@ -43,6 +43,7 @@ export default function Settings({
   section,
   onSection,
   onAbout,
+  updateVersion,
 }: Props) {
   const { snapshot, busy } = controls
   const { t } = appearance
@@ -80,13 +81,6 @@ export default function Settings({
       Icon: KeyRound,
     },
   ] as const
-  const shortTitles = {
-    general: t('startupShort'),
-    network: t('networkShort'),
-    security: t('securityShort'),
-    appearance: t('appearance'),
-    advanced: t('advancedShort'),
-  }
   const groups = [
     { title: t('connectionGroup'), ids: ['security', 'network'] },
     { title: t('personalizeGroup'), ids: ['general', 'appearance'] },
@@ -94,30 +88,6 @@ export default function Settings({
   ]
   return (
     <div className="settings-layout">
-      {section !== 'overview' && (
-        <nav className="section-navigation" aria-label={t('settings')}>
-          <button
-            type="button"
-            className="overview-link"
-            onClick={() => onSection('overview')}
-          >
-            <Grid2X2 size={14} aria-hidden="true" />
-            {t('allSettings')}
-          </button>
-          <div className="section-shortcuts">
-            {menu.map(({ id }) => (
-              <button
-                key={id}
-                type="button"
-                aria-current={section === id ? 'page' : undefined}
-                onClick={() => onSection(id)}
-              >
-                {shortTitles[id]}
-              </button>
-            ))}
-          </div>
-        </nav>
-      )}
       <div key={section} className="settings-content section-enter">
         {section === 'overview' && (
           <>
@@ -198,6 +168,11 @@ export default function Settings({
                           </span>
                           <span className="setting-description">
                             {t('aboutDescription')}
+                            {updateVersion && (
+                              <strong className="update-menu-badge">
+                                {t('updateAvailable')} {updateVersion}
+                              </strong>
+                            )}
                           </span>
                         </span>
                         <ChevronRight

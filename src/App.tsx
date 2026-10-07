@@ -3,7 +3,7 @@ import { ArrowLeft, Settings as SettingsIcon } from 'lucide-react'
 import { invoke } from '@tauri-apps/api/core'
 import logo from '../assets/warply-logo.png'
 import Settings, { type SettingsSection } from './components/Settings'
-import ConnectionDetails from './components/ConnectionDetails'
+import { healthIssueLabel } from './components/ConnectionDetails'
 import About from './components/About'
 import PowerButton, { type PowerState } from './components/PowerButton'
 import StatusBlock from './components/StatusBlock'
@@ -14,6 +14,11 @@ import { localizeBackendMessage } from './i18n'
 
 type View = 'main' | 'settings' | 'about'
 type AvailableUpdate = { version: string }
+type UpdateProgress = {
+  stage: string
+  downloaded: number
+  total: number | null
+}
 
 export default function App() {
   const controls = useTunnel()
@@ -30,6 +35,31 @@ export default function App() {
     'checking' | 'installing' | null
   >(null)
   const [updateMessage, setUpdateMessage] = useState<string | null>(null)
+  const [updateProgress, setUpdateProgress] = useState<UpdateProgress | null>(
+    null,
+  )
+
+  useEffect(() => {
+    if (updateBusy !== 'installing') return
+    let stopped = false
+    let timer: number
+    async function refreshProgress() {
+      try {
+        const progress = await invoke<UpdateProgress>('update_progress')
+        if (!stopped) setUpdateProgress(progress)
+      } catch {
+        /* Progress is cosmetic; installation errors have their own message. */
+      }
+      if (!stopped)
+        timer = window.setTimeout(() => void refreshProgress(), 1000)
+    }
+    void refreshProgress()
+    return () => {
+      stopped = true
+      window.clearTimeout(timer)
+      setUpdateProgress(null)
+    }
+  }, [updateBusy])
   const content = useRef<HTMLElement>(null)
   const settingsButton = useRef<HTMLButtonElement>(null)
   const backButton = useRef<HTMLButtonElement>(null)
@@ -172,7 +202,8 @@ export default function App() {
     : verifying
       ? t('verificationPending')
       : connected
-        ? t('verificationFailed')
+        ? (!controls.stale && healthIssueLabel(snapshot, t)) ||
+          t('verificationFailed')
         : t('ready')
   if (setupBusy && !failed) {
     title = t('starting')
@@ -332,16 +363,20 @@ export default function App() {
               </button>
             )}
             {updateVersion && (
-              <button type="button" className="text-button" onClick={openAbout}>
-                {t('updateAvailable')} {updateVersion}
+              <button
+                type="button"
+                className="update-banner"
+                onClick={openAbout}
+                aria-label={`${t('updateAvailable')} ${updateVersion}`}
+              >
+                <span>
+                  <strong>
+                    {t('updateAvailable')} {updateVersion}
+                  </strong>
+                  <small>{t('reviewUpdate')}</small>
+                </span>
+                <span aria-hidden="true">↗</span>
               </button>
-            )}
-            {setup === 'ready' && (
-              <ConnectionDetails
-                snapshot={snapshot}
-                uncertain={controls.stale}
-                t={t}
-              />
             )}
             {setup === 'ready' && (
               <button
@@ -399,6 +434,7 @@ export default function App() {
               section={settingsSection}
               onSection={setSettingsSection}
               onAbout={openAbout}
+              updateVersion={updateVersion}
             />
             {message && (
               <p className="view-error" role="alert">
@@ -418,6 +454,7 @@ export default function App() {
               updateVersion={updateVersion}
               updateBusy={updateBusy}
               updateMessage={updateMessage}
+              progress={updateProgress}
               onCheckUpdates={() => void checkUpdates()}
               onInstallUpdate={() => void installUpdate()}
               onProjectLink={() => {
