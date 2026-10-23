@@ -1,10 +1,10 @@
 {
-  "version": "0.3.0",
-  "notes": "Refreshed light/dark desktop, paired settings tiles, observed-session timer, quick connection recheck and Ctrl+, settings shortcut. Stale status or a stalled reply no longer keeps the old green proof indefinitely. Existing accounts and profiles are preserved.",
+  "version": "0.3.1",
+  "notes": "Fix the offset power-button ring introduced in 0.3.0. The ring now follows the button dimensions and remains centered with the icon and halo. Existing accounts and profiles are preserved.",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUWZMc29sU09LaS9ZeTJ2Y1d4RnorZHdDcy9WRXJsK3dWOCtBNlpxLzlDMlJJUkJaNEZlTVRYRXkzdnNFaXNTaHlmQUFRUlgvd09SNUx2RkNQSXVwMURGSXpDOGhRd0FJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNzU4MzQwCWZpbGU6V2FycGx5XzAuMy4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjMuMApoeFNrYXdyaEg4SnFXbjlRdSswR2RDdnUydWVoU0hWV0oyczl3V0lMK09pYzJQUm5QWkVCT25HM2Y4d2JKNjZJYlZEQVFIemV5UnFjYk1jQnYwMVlCQT09Cg==",
-      "url": "https://github.com/rookeudev/warply/releases/download/v0.3.0/Warply_0.3.0_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUWZMc29sU09LaXl5TEpuTkwxdXNPMEozTXdOeVRWdUlMZkhRTkJzRTBRQ29xU2xqcThkTnBRN0hCY0ZqVkEwZFZoV01wSUFORlkvUWc4WjJjZVljRHovQTBjY2tWRWdvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNzYwNTAyCWZpbGU6V2FycGx5XzAuMy4xX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjMuMQpOOW9kUElZSmkrSFc4Mm1jNTBqcVYyWnJaYWtLbmNFZEdGZEUxQWh2NERRRHQvS2Z3eVFFbXMzektQWFBMY1VEeGZ5NmtHU1VoUFhLU1NpbmVWRDlBUT09Cg==",
+      "url": "https://github.com/rookeudev/warply/releases/download/v0.3.1/Warply_0.3.1_x64-setup.exe"
     }
   }
 }
