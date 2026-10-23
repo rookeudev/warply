@@ -13,6 +13,7 @@ export type SetupStatus =
 export type TunnelSnapshot = {
   status: TunnelStatus
   health: {
+    session_secs?: number | null
     issue?:
       | 'inspection'
       | 'routes'
@@ -68,12 +69,27 @@ export function useTunnel() {
   const appliedId = useRef(0)
   const pollDelay = useRef(3000)
   const pendingRefresh = useRef<Promise<void> | null>(null)
+  const receivedAt = useRef<number | null>(null)
+  const [clock, setClock] = useState(0)
+
+  useEffect(() => {
+    const tick = () => setClock(performance.now())
+    const timer = window.setInterval(() => {
+      if (!document.hidden) tick()
+    }, 1000)
+    document.addEventListener('visibilitychange', tick)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', tick)
+    }
+  }, [])
 
   const applySnapshot = useCallback((next: TunnelSnapshot, id: number) => {
     if (id >= appliedId.current) {
       appliedId.current = id
       pollDelay.current = next.poll_after_ms === 15000 ? 15000 : 3000
       setSnapshot(next)
+      receivedAt.current = performance.now()
     }
   }, [])
 
@@ -191,7 +207,23 @@ export function useTunnel() {
     snapshot,
     busy,
     error: error ?? pollError,
-    stale: pollError !== null,
+    stale:
+      pollError !== null ||
+      (receivedAt.current !== null && clock - receivedAt.current >= 30000) ||
+      (snapshot?.health.status === 'verified' &&
+        receivedAt.current !== null &&
+        snapshot.health.checked_ago_secs !== null &&
+        snapshot.health.checked_ago_secs +
+          Math.max(0, clock - receivedAt.current) / 1000 >=
+          30),
+    sessionSeconds:
+      snapshot?.status === 'connected' && snapshot.health.session_secs != null
+        ? snapshot.health.session_secs +
+          Math.max(
+            0,
+            Math.floor((clock - (receivedAt.current ?? clock)) / 1000),
+          )
+        : null,
     notice,
     importConfig,
     exportConfig,

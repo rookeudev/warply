@@ -25,6 +25,7 @@ pub enum HealthStatus {
 
 #[derive(Clone, Serialize)]
 pub struct HealthView {
+    pub session_secs: Option<u64>,
     pub issue: Option<&'static str>,
     pub status: HealthStatus,
     pub duration_ms: Option<u64>,
@@ -35,6 +36,7 @@ pub struct HealthView {
 }
 
 struct Cache {
+    connected_since: Option<Instant>,
     status: HealthStatus,
     duration_ms: Option<u64>,
     checked_at: Option<Instant>,
@@ -47,6 +49,7 @@ struct Cache {
 impl Default for Cache {
     fn default() -> Self {
         Self {
+            connected_since: None,
             status: HealthStatus::Unknown,
             duration_ms: None,
             checked_at: None,
@@ -84,7 +87,9 @@ pub struct HealthMonitor(Mutex<Cache>);
 
 impl HealthMonitor {
     pub async fn invalidate(&self) {
-        self.0.lock().await.reset();
+        let mut cache = self.0.lock().await;
+        cache.reset();
+        cache.connected_since = None;
     }
 
     pub async fn request_check(&self) {
@@ -103,6 +108,7 @@ impl HealthMonitor {
         let cache = self.0.lock().await;
         if service != TunnelStatus::Connected {
             return HealthView {
+                session_secs: None,
                 issue: None,
                 status: HealthStatus::Unknown,
                 duration_ms: None,
@@ -114,6 +120,7 @@ impl HealthMonitor {
         }
         let age = cache.checked_at.map(|at| at.elapsed().as_secs());
         HealthView {
+            session_secs: cache.connected_since.map(|at| at.elapsed().as_secs()),
             issue: if age.is_some_and(|age| age >= INTERVAL.as_secs()) {
                 None
             } else {
@@ -164,6 +171,7 @@ pub fn start_monitor(app: tauri::AppHandle) {
             } else {
                 let revision = {
                     let mut cache = state.health.0.lock().await;
+                    cache.connected_since.get_or_insert_with(Instant::now);
                     if cache.checked_at.is_none_or(|at| at.elapsed() >= INTERVAL) {
                         let previous = cache.status;
                         cache.status = HealthStatus::Checking;
@@ -383,6 +391,35 @@ fn parse_trace(body: &str) -> HealthStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn session_survives_manual_checks_but_ends_on_disconnect() {
+        tauri::async_runtime::block_on(async {
+            let monitor = HealthMonitor::default();
+            {
+                let mut cache = monitor.0.lock().await;
+                cache.connected_since = Some(Instant::now() - Duration::from_secs(10));
+                cache.finish(0, HealthStatus::Verified, Some(10));
+                cache.checked_at = Some(Instant::now() - Duration::from_secs(6));
+            }
+            monitor.request_check().await;
+            assert!(monitor
+                .view(TunnelStatus::Connected)
+                .await
+                .session_secs
+                .is_some_and(|secs| secs >= 10));
+            assert!(monitor
+                .view(TunnelStatus::Disconnected)
+                .await
+                .session_secs
+                .is_none());
+            monitor.invalidate().await;
+            assert!(monitor
+                .view(TunnelStatus::Connected)
+                .await
+                .session_secs
+                .is_none());
+        });
+    }
     #[test]
     fn reasons_distinguish_partial_proof_and_are_hidden_for_pending_or_verified_checks() {
         let mut network = crate::diagnostics::NetworkView {

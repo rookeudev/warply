@@ -1,6 +1,10 @@
-# Security model — v0.2.7
+# Security model — v0.3.0
 
 Warply has additional safeguards, but this is not a claim of complete security or a full independent audit. Source secrecy is not a security control.
+
+## 0.3.0 visible status freshness
+
+The frontend ages the last received proof locally and removes verified styling when its 30-second validity window expires or no snapshot has arrived for approximately 30 seconds. The visible clock also drives a non-persistent observed-session timer; hidden pages update on return. OFF remains accessible for the last known active service. Native health still verifies both IP families and local network evidence; the client timer does not create proof or weaken Rust checks. See [release notes and tests](release-v0.3.0.md).
 
 ## 0.2.7 bug fixes
 

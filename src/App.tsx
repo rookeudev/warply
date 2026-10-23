@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Settings as SettingsIcon } from 'lucide-react'
+import {
+  ArrowLeft,
+  Settings as SettingsIcon,
+  Shield,
+  Clock3,
+  RefreshCw,
+  ArrowUpRight,
+} from 'lucide-react'
 import { invoke } from '@tauri-apps/api/core'
 import logo from '../assets/warply-logo.png'
 import Settings, { type SettingsSection } from './components/Settings'
@@ -105,6 +112,16 @@ export default function App() {
     else if (previousView.current !== 'main') settingsButton.current?.focus()
     previousView.current = view
     function handleKey(event: KeyboardEvent) {
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        event.key === ',' &&
+        !event.repeat
+      ) {
+        event.preventDefault()
+        setSettingsSection('overview')
+        setView('settings')
+        return
+      }
       if (
         view !== 'main' &&
         (event.key === 'Escape' || (event.altKey && event.key === 'ArrowLeft'))
@@ -233,6 +250,22 @@ export default function App() {
     : notice?.startsWith('Config imported')
       ? t('imported')
       : notice
+  if (controls.stale && !failed) {
+    title = t('connectionUnverified')
+    secondary = t('statusOutdated')
+  }
+  const sessionSeconds = controls.sessionSeconds
+  const sessionText =
+    sessionSeconds == null
+      ? '—'
+      : `${Math.floor(sessionSeconds / 3600)
+          .toString()
+          .padStart(2, '0')}:${Math.floor((sessionSeconds % 3600) / 60)
+          .toString()
+          .padStart(
+            2,
+            '0',
+          )}:${(sessionSeconds % 60).toString().padStart(2, '0')}`
 
   if (view === 'main' && setupBusy && !failed) {
     return <LoadingScreen message={secondary} />
@@ -245,7 +278,9 @@ export default function App() {
           <>
             <div className="app-brand">
               <img src={logo} className="brand-logo" alt="" />
-              <h1>Warply</h1>
+              <h1>
+                Warply<span className="brand-caption">{t('brandCaption')}</span>
+              </h1>
             </div>
             <button
               ref={settingsButton}
@@ -321,6 +356,50 @@ export default function App() {
               secondary={secondary}
               error={failed && !connecting}
             />
+            {setup === 'ready' && (
+              <div className="session-strip">
+                <button
+                  className="session-cell"
+                  type="button"
+                  onClick={() => {
+                    setSettingsSection('security')
+                    navigate('settings')
+                  }}
+                >
+                  <Shield size={15} aria-hidden="true" />
+                  <span>
+                    <small>{t('killSwitchShort')}</small>
+                    <strong>
+                      {controls.stale || !snapshot?.protection?.known
+                        ? t('notChecked')
+                        : snapshot.protection.active
+                          ? t('enabled')
+                          : t('disabled')}
+                    </strong>
+                  </span>
+                </button>
+                <div className="session-cell">
+                  <Clock3 size={15} aria-hidden="true" />
+                  <span>
+                    <small>{t('currentSession')}</small>
+                    <strong className="session-time">
+                      {controls.stale ? '—' : sessionText}
+                    </strong>
+                  </span>
+                </div>
+              </div>
+            )}
+            {connected && !verified && !verifying && !controls.stale && (
+              <button
+                type="button"
+                className="native-button recheck-action"
+                disabled={!!busy}
+                onClick={() => void controls.recheckConnection()}
+              >
+                <RefreshCw size={14} aria-hidden="true" />
+                {t('checkConnection')}
+              </button>
+            )}
             {connecting && busy !== 'disconnect' && busy !== 'restore' && (
               <button
                 type="button"
@@ -330,7 +409,7 @@ export default function App() {
                 {t('cancelConnection')}
               </button>
             )}
-            {(snapshot?.protection?.active ||
+            {((snapshot?.protection?.active && !verified) ||
               snapshot?.protection?.known === false) && (
               <div className="protection-notice" role="status">
                 <p>
@@ -375,7 +454,7 @@ export default function App() {
                   </strong>
                   <small>{t('reviewUpdate')}</small>
                 </span>
-                <span aria-hidden="true">↗</span>
+                <ArrowUpRight size={17} aria-hidden="true" />
               </button>
             )}
             {setup === 'ready' && (

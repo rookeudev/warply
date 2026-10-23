@@ -1,4 +1,11 @@
 export const en = {
+  brandCaption: 'Your connection, simplified.',
+  killSwitchShort: 'Kill switch',
+  currentSession: 'Current session',
+  enabled: 'On',
+  disabled: 'Off',
+  statusOutdated:
+    'The latest status is no longer fresh. Waiting for a new check; you can still disconnect.',
   reviewUpdate: 'Review and install',
   updateConfirming: 'Waiting for your confirmation…',
   updateDownloading: 'Downloading update…',
@@ -224,6 +231,13 @@ export type Language = 'en' | 'cs'
 export type Translator = (key: MessageKey) => string
 
 export const cs: Record<MessageKey, string> = {
+  brandCaption: 'Připojení bez složitostí.',
+  killSwitchShort: 'Kill switch',
+  currentSession: 'Aktuální relace',
+  enabled: 'Zapnuto',
+  disabled: 'Vypnuto',
+  statusOutdated:
+    'Poslední stav už není aktuální. Čekáme na novou kontrolu; připojení můžete stále vypnout.',
   reviewUpdate: 'Zobrazit a nainstalovat',
   updateConfirming: 'Čekání na vaše potvrzení…',
   updateDownloading: 'Stahování aktualizace…',
