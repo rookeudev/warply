@@ -40,7 +40,7 @@ Cloudflare WARP is a free service that encrypts your internet traffic. Setting i
 - **Local diagnostics.** Copy a partial troubleshooting report even when setup fails, without keys, IP addresses, usernames, or automatic uploads. The explicit `warply.exe --diagnostics` command also works without opening the interface.
 - **Simple loading screen.** Logo and status while automatic setup starts; errors open the normal recovery screen.
 - **Start menu.** The installer creates a searchable Warply shortcut. Manual launches open the window even when Windows logon is set to start in the tray.
-- **Refreshed interface.** Light/dark themes, paired settings tiles, a compact kill-switch indicator and an observed-session timer. Ctrl+, opens Settings; brief animations respect reduced-motion preferences.
+- **Simple interface.** One main power button, a clear connection state and a six-item Settings list. Kill-switch/session information and expandable technical checks live in Connection details. Light/dark themes, Ctrl+, and reduced motion are supported.
 - **Fresh proof.** The client drops green verification when status becomes stale, even if a status request stalls. Unverified connections offer a quick recheck.
 - **Signed updates.** Check manually or opt into daily checks; installation requires confirmation.
 - **Private.** No telemetry, analytics, usage history, crash uploads, or Warply server. Your private key stays on your PC. [Privacy details](docs/privacy.md).
@@ -50,8 +50,8 @@ Cloudflare WARP is a free service that encrypts your internet traffic. Setting i
 Interface previews using a sample connection state:
 
 <p align="center">
-  <img src="docs/ui-0.3.0-dark.png" width="260" alt="Warply in dark mode">
-  <img src="docs/ui-0.3.0-light.png" width="260" alt="Warply in light mode, Czech language">
+  <img src="docs/ui-0.4.0-dark.png" width="260" alt="Warply in dark mode">
+  <img src="docs/ui-0.4.0-light.png" width="260" alt="Warply in light mode, Czech language">
 </p>
 
 ## Download

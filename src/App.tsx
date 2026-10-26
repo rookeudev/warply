@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
   Settings as SettingsIcon,
-  Shield,
-  Clock3,
   RefreshCw,
   ArrowUpRight,
 } from 'lucide-react'
@@ -208,20 +206,20 @@ export default function App() {
     (serviceActive || snapshot.wireguard_installed) &&
     (serviceActive || (setup === 'ready' && snapshot.has_config && !connecting))
   let title = verified
-    ? t('warpVerified')
+    ? t('connected')
     : verifying
       ? t('checkingConnection')
       : connected
         ? t('connectionUnverified')
         : t('disconnected')
   let secondary = verified
-    ? t('verificationPassed')
+    ? t('connectionConfirmed')
     : verifying
       ? t('verificationPending')
       : connected
         ? (!controls.stale && healthIssueLabel(snapshot, t)) ||
           t('verificationFailed')
-        : t('ready')
+        : ''
   if (setupBusy && !failed) {
     title = t('starting')
     secondary =
@@ -254,19 +252,6 @@ export default function App() {
     title = t('connectionUnverified')
     secondary = t('statusOutdated')
   }
-  const sessionSeconds = controls.sessionSeconds
-  const sessionText =
-    sessionSeconds == null
-      ? '—'
-      : `${Math.floor(sessionSeconds / 3600)
-          .toString()
-          .padStart(2, '0')}:${Math.floor((sessionSeconds % 3600) / 60)
-          .toString()
-          .padStart(
-            2,
-            '0',
-          )}:${(sessionSeconds % 60).toString().padStart(2, '0')}`
-
   if (view === 'main' && setupBusy && !failed) {
     return <LoadingScreen message={secondary} />
   }
@@ -278,9 +263,7 @@ export default function App() {
           <>
             <div className="app-brand">
               <img src={logo} className="brand-logo" alt="" />
-              <h1>
-                Warply<span className="brand-caption">{t('brandCaption')}</span>
-              </h1>
+              <h1>Warply</h1>
             </div>
             <button
               ref={settingsButton}
@@ -356,50 +339,21 @@ export default function App() {
               secondary={secondary}
               error={failed && !connecting}
             />
-            {setup === 'ready' && (
-              <div className="session-strip">
+            {connected &&
+              !verified &&
+              !verifying &&
+              !controls.stale &&
+              !failed && (
                 <button
-                  className="session-cell"
                   type="button"
-                  onClick={() => {
-                    setSettingsSection('security')
-                    navigate('settings')
-                  }}
+                  className="native-button recheck-action"
+                  disabled={!!busy}
+                  onClick={() => void controls.recheckConnection()}
                 >
-                  <Shield size={15} aria-hidden="true" />
-                  <span>
-                    <small>{t('killSwitchShort')}</small>
-                    <strong>
-                      {controls.stale || !snapshot?.protection?.known
-                        ? t('notChecked')
-                        : snapshot.protection.active
-                          ? t('enabled')
-                          : t('disabled')}
-                    </strong>
-                  </span>
+                  <RefreshCw size={14} aria-hidden="true" />
+                  {t('checkConnection')}
                 </button>
-                <div className="session-cell">
-                  <Clock3 size={15} aria-hidden="true" />
-                  <span>
-                    <small>{t('currentSession')}</small>
-                    <strong className="session-time">
-                      {controls.stale ? '—' : sessionText}
-                    </strong>
-                  </span>
-                </div>
-              </div>
-            )}
-            {connected && !verified && !verifying && !controls.stale && (
-              <button
-                type="button"
-                className="native-button recheck-action"
-                disabled={!!busy}
-                onClick={() => void controls.recheckConnection()}
-              >
-                <RefreshCw size={14} aria-hidden="true" />
-                {t('checkConnection')}
-              </button>
-            )}
+              )}
             {connecting && busy !== 'disconnect' && busy !== 'restore' && (
               <button
                 type="button"
@@ -452,7 +406,6 @@ export default function App() {
                   <strong>
                     {t('updateAvailable')} {updateVersion}
                   </strong>
-                  <small>{t('reviewUpdate')}</small>
                 </span>
                 <ArrowUpRight size={17} aria-hidden="true" />
               </button>

@@ -23,6 +23,7 @@ type Props = {
   busy?: boolean
   uncertain?: boolean
   onRecheck?: () => void
+  sessionSeconds?: number | null
 }
 
 export function healthIssueLabel(
@@ -49,7 +50,19 @@ export default function ConnectionDetails({
   busy,
   uncertain = false,
   onRecheck,
+  sessionSeconds,
 }: Props) {
+  const elapsed = sessionSeconds ?? snapshot?.health.session_secs
+  const session =
+    elapsed == null
+      ? '—'
+      : `${Math.floor(elapsed / 3600)
+          .toString()
+          .padStart(2, '0')}:${Math.floor((elapsed % 3600) / 60)
+          .toString()
+          .padStart(2, '0')}:${Math.floor(elapsed % 60)
+          .toString()
+          .padStart(2, '0')}`
   const issue = snapshot?.health.issue
   const issueKeys = {
     inspection: 'issueInspection',
@@ -83,6 +96,26 @@ export default function ConnectionDetails({
         <span>{t('connectionDetails')}</span>
       </div>
       <dl className="connection-facts">
+        {detailed && (
+          <>
+            <div>
+              <dt>{t('killSwitchShort')}</dt>
+              <dd>
+                {uncertain || !snapshot?.protection?.known
+                  ? t('notChecked')
+                  : snapshot.protection.active
+                    ? t('enabled')
+                    : t('disabled')}
+              </dd>
+            </div>
+            {running && (
+              <div>
+                <dt>{t('currentSession')}</dt>
+                <dd className="session-time">{uncertain ? '—' : session}</dd>
+              </div>
+            )}
+          </>
+        )}
         <div>
           <dt>{t('wireGuardService')}</dt>
           <dd>{uncertain ? t('notAvailable') : serviceLabel}</dd>
@@ -106,61 +139,67 @@ export default function ConnectionDetails({
               </dd>
             </div>
           )}
-        {detailed && snapshot?.health.network && (
-          <>
-            <div>
-              <dt>{t('routeV4')}</dt>
-              <dd>
-                {!uncertain && snapshot.health.network.ipv4_tunnel
-                  ? t('tunnelRoute')
-                  : t('notVerified')}
-              </dd>
-            </div>
-            <div>
-              <dt>{t('routeV6')}</dt>
-              <dd>
-                {!uncertain && snapshot.health.network.ipv6_tunnel
-                  ? t('tunnelRoute')
-                  : t('notVerified')}
-              </dd>
-            </div>
-            <div>
-              <dt>{t('dnsCheck')}</dt>
-              <dd>
-                {!uncertain && snapshot.health.network.dns_matches
-                  ? t('dnsConfigured')
-                  : t('notVerified')}
-              </dd>
-            </div>
-            <div>
-              <dt>IPv4 WARP</dt>
-              <dd>
-                {!uncertain && snapshot.health.ipv4 === 'verified'
-                  ? t('warpVerified')
-                  : t('notVerified')}
-              </dd>
-            </div>
-            <div>
-              <dt>IPv6 WARP</dt>
-              <dd>
-                {!uncertain && snapshot.health.ipv6 === 'verified'
-                  ? t('warpVerified')
-                  : t('notVerified')}
-              </dd>
-            </div>
-            <div>
-              <dt>{t('otherVpns')}</dt>
-              <dd>
-                {uncertain || !snapshot.health.network.inspection_available
-                  ? t('notChecked')
-                  : snapshot.health.network.other_vpn_count}
-              </dd>
-            </div>
-          </>
-        )}
       </dl>
       {detailed && (
-        <p className="setting-description">{t('healthExplanation')}</p>
+        <details className="connection-advanced">
+          <summary>{t('technicalDetails')}</summary>
+          <dl className="connection-facts">
+            {detailed && snapshot?.health.network && (
+              <>
+                <div>
+                  <dt>{t('routeV4')}</dt>
+                  <dd>
+                    {!uncertain && snapshot.health.network.ipv4_tunnel
+                      ? t('tunnelRoute')
+                      : t('notVerified')}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t('routeV6')}</dt>
+                  <dd>
+                    {!uncertain && snapshot.health.network.ipv6_tunnel
+                      ? t('tunnelRoute')
+                      : t('notVerified')}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t('dnsCheck')}</dt>
+                  <dd>
+                    {!uncertain && snapshot.health.network.dns_matches
+                      ? t('dnsConfigured')
+                      : t('notVerified')}
+                  </dd>
+                </div>
+                <div>
+                  <dt>IPv4 WARP</dt>
+                  <dd>
+                    {!uncertain && snapshot.health.ipv4 === 'verified'
+                      ? t('warpVerified')
+                      : t('notVerified')}
+                  </dd>
+                </div>
+                <div>
+                  <dt>IPv6 WARP</dt>
+                  <dd>
+                    {!uncertain && snapshot.health.ipv6 === 'verified'
+                      ? t('warpVerified')
+                      : t('notVerified')}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t('otherVpns')}</dt>
+                  <dd>
+                    {uncertain || !snapshot.health.network.inspection_available
+                      ? t('notChecked')
+                      : snapshot.health.network.other_vpn_count}
+                  </dd>
+                </div>
+              </>
+            )}
+          </dl>
+          <p className="setting-description">{t('healthExplanation')}</p>
+          <p className="setting-description">{t('sessionExplanation')}</p>
+        </details>
       )}
       {running && !uncertain && issue && issue in issueKeys && (
         <p className="setting-description" role="status">

@@ -20,8 +20,7 @@ import SettingRow from './SettingRow'
 import SettingsList from './SettingsList'
 import Toggle from './Toggle'
 import NetworkSettings from './NetworkSettings'
-import ConnectionDetails, { healthLabel } from './ConnectionDetails'
-import { version } from '../../package.json'
+import ConnectionDetails from './ConnectionDetails'
 import Diagnostics from './Diagnostics'
 
 export type SettingsSection =
@@ -81,112 +80,36 @@ export default function Settings({
       Icon: KeyRound,
     },
   ] as const
-  const groups = [
-    { title: t('connectionGroup'), ids: ['security', 'network'] },
-    { title: t('personalizeGroup'), ids: ['general', 'appearance'] },
-    { title: t('managementGroup'), ids: ['advanced'] },
-  ]
   return (
     <div className="settings-layout">
       <div key={section} className="settings-content section-enter">
         {section === 'overview' && (
-          <>
-            <section
-              className="settings-summary"
-              aria-label={t('connectionDetails')}
-            >
-              <div className="summary-heading">
-                <span className="summary-title">{t('settingsIntro')}</span>
-                <span className="version-chip">v{version}</span>
-              </div>
-              <div className="summary-state">
-                <span
-                  className={`status-dot${!controls.stale && snapshot?.status === 'connected' && snapshot.health?.status === 'verified' ? ' status-dot--verified' : ''}`}
-                  aria-hidden="true"
-                />
-                <span>
-                  {controls.stale
-                    ? t('notChecked')
-                    : snapshot?.status === 'connected'
-                      ? healthLabel(snapshot, t)
-                      : snapshot?.status === 'connecting'
-                        ? t('connecting')
-                        : t('disconnected')}
-                </span>
-              </div>
-            </section>
-            <nav className="settings-menu" aria-label={t('settings')}>
-              {groups.map((group) => (
-                <section className="menu-group" key={group.title}>
-                  <h2>{group.title}</h2>
-                  <div className="menu-group-list">
-                    {menu
-                      .filter(({ id }) => group.ids.includes(id))
-                      .map(({ id, title, description, Icon }) => (
-                        <button
-                          key={id}
-                          type="button"
-                          className="menu-card"
-                          onClick={() => onSection(id)}
-                        >
-                          <span className={`menu-icon menu-icon--${id}`}>
-                            <Icon
-                              size={19}
-                              strokeWidth={1.7}
-                              aria-hidden="true"
-                            />
-                          </span>
-                          <span className="setting-copy">
-                            <span className="setting-label">{title}</span>
-                            <span className="setting-description">
-                              {description}
-                            </span>
-                          </span>
-                          <ChevronRight
-                            size={16}
-                            className="menu-chevron"
-                            aria-hidden="true"
-                          />
-                        </button>
-                      ))}
-                    {group.ids.includes('advanced') && (
-                      <button
-                        type="button"
-                        className="menu-card"
-                        onClick={onAbout}
-                      >
-                        <span className="menu-icon">
-                          <Info
-                            size={19}
-                            strokeWidth={1.7}
-                            aria-hidden="true"
-                          />
-                        </span>
-                        <span className="setting-copy">
-                          <span className="setting-label">
-                            {t('updatesAbout')}
-                          </span>
-                          <span className="setting-description">
-                            {t('aboutDescription')}
-                            {updateVersion && (
-                              <strong className="update-menu-badge">
-                                {t('updateAvailable')} {updateVersion}
-                              </strong>
-                            )}
-                          </span>
-                        </span>
-                        <ChevronRight
-                          size={16}
-                          className="menu-chevron"
-                          aria-hidden="true"
-                        />
-                      </button>
-                    )}
-                  </div>
-                </section>
-              ))}
-            </nav>
-          </>
+          <nav className="simple-menu" aria-label={t('settings')}>
+            {menu.map(({ id, title, Icon }) => (
+              <button
+                key={id}
+                type="button"
+                className="simple-menu-row"
+                onClick={() => onSection(id)}
+              >
+                <Icon size={18} strokeWidth={1.6} aria-hidden="true" />
+                <span>{title}</span>
+                <ChevronRight size={15} aria-hidden="true" />
+              </button>
+            ))}
+            <button type="button" className="simple-menu-row" onClick={onAbout}>
+              <Info size={18} strokeWidth={1.6} aria-hidden="true" />
+              <span>
+                {t('updatesAbout')}
+                {updateVersion && (
+                  <small className="update-menu-badge">
+                    {t('updateAvailable')} {updateVersion}
+                  </small>
+                )}
+              </span>
+              <ChevronRight size={15} aria-hidden="true" />
+            </button>
+          </nav>
         )}
         {section === 'general' && (
           <>
@@ -242,6 +165,8 @@ export default function Settings({
               t={t}
               detailed
               busy={locked}
+              uncertain={controls.stale}
+              sessionSeconds={controls.sessionSeconds}
               onRecheck={() => void controls.recheckConnection()}
             />
             <SettingsList title={t('network')}>

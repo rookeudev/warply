@@ -39,7 +39,6 @@ export default function About({
       : null
   return (
     <div className="about-content">
-      <p className="about-intro">{t('notesIntro')}</p>
       <SettingsList title="Warply">
         <SettingRow label={t('version')}>
           <span className="setting-value">{version}</span>

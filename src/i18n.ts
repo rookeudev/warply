@@ -1,4 +1,8 @@
 export const en = {
+  connectionConfirmed: 'Connection verified.',
+  technicalDetails: 'Technical details',
+  sessionExplanation:
+    'Session time starts when this app observes the tunnel. It resets on app restart.',
   brandCaption: 'Your connection, simplified.',
   killSwitchShort: 'Kill switch',
   currentSession: 'Current session',
@@ -29,7 +33,7 @@ export const en = {
   protectionUnknown:
     'Protection status is unavailable. Use diagnostics or Restore internet to check it.',
 
-  securityMenu: 'Protection & recovery',
+  securityMenu: 'Protection',
   securityMenuDescription: 'Kill switch and recovery.',
   securityDescription:
     'Persistent protection, notifications, and local diagnostics.',
@@ -85,12 +89,12 @@ export const en = {
   networkShort: 'Connection',
   securityShort: 'Protection',
   advancedShort: 'Account',
-  generalMenu: 'Startup & behavior',
+  generalMenu: 'General',
   generalDescription: 'Startup and window preferences.',
-  networkMenu: 'Connection & DNS',
+  networkMenu: 'Connection',
   networkMenuDescription: 'Tunnel checks and DNS settings.',
   appearanceDescription: 'Language and theme.',
-  advancedMenu: 'Account & advanced',
+  advancedMenu: 'Account & config',
   advancedDescription: 'Configurations and WARP account.',
   updatesAbout: 'Updates & about',
   aboutDescription: 'Version, updates and project links.',
@@ -231,6 +235,10 @@ export type Language = 'en' | 'cs'
 export type Translator = (key: MessageKey) => string
 
 export const cs: Record<MessageKey, string> = {
+  connectionConfirmed: 'Připojení je ověřené.',
+  technicalDetails: 'Technické podrobnosti',
+  sessionExplanation:
+    'Čas relace se počítá od zaznamenání tunelu v této aplikaci. Po restartu aplikace začíná znovu.',
   brandCaption: 'Připojení bez složitostí.',
   killSwitchShort: 'Kill switch',
   currentSession: 'Aktuální relace',
@@ -262,7 +270,7 @@ export const cs: Record<MessageKey, string> = {
   protectionUnknown:
     'Stav ochrany nelze ověřit. Použij diagnostiku nebo Obnovit internet.',
 
-  securityMenu: 'Ochrana a obnova',
+  securityMenu: 'Ochrana',
   securityMenuDescription: 'Kill switch a obnova připojení.',
   securityDescription: 'Trvalá ochrana, oznámení a místní diagnostika.',
   killSwitch: 'Trvalý kill switch',
@@ -316,12 +324,12 @@ export const cs: Record<MessageKey, string> = {
   securityShort: 'Ochrana',
   advancedShort: 'Účet',
   settingsIntro: 'Warply podle tebe.',
-  generalMenu: 'Spouštění a chování',
+  generalMenu: 'Obecné',
   generalDescription: 'Spuštění a chování okna.',
-  networkMenu: 'Připojení a DNS',
+  networkMenu: 'Připojení',
   networkMenuDescription: 'Ověření tunelu a DNS.',
   appearanceDescription: 'Jazyk a motiv.',
-  advancedMenu: 'Účet a pokročilé',
+  advancedMenu: 'Účet a konfigurace',
   advancedDescription: 'Konfigurace a účet WARP.',
   updatesAbout: 'Aktualizace a informace',
   aboutDescription: 'Verze, aktualizace a projekt.',

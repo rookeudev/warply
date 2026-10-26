@@ -1,94 +1,84 @@
-/* Shared surfaces for the compact desktop layout. */
+/* Minimal desktop surfaces; detailed controls live in Settings. */
 :root {
-  --window: #f2f6fc;
-  --text: #17263b;
-  --muted: #56677d;
-  --separator: #d8e2ef;
+  --window: #f5f7fa;
+  --text: #202a37;
+  --muted: #5b6878;
+  --separator: #dde3eb;
   --control: #fff;
-  --control-border: #aec3df;
-  --hover: #e8effa;
+  --control-border: #b6c2d1;
+  --hover: #eaf0f7;
   --accent: #276ce4;
-  --ring: #7194c7;
+  --ring: #7592b6;
 }
 :root[data-theme='dark'] {
-  --window: #111923;
-  --text: #edf4ff;
-  --muted: #a8b8cd;
-  --separator: #2a384b;
-  --control: #1a2534;
-  --control-border: #435d7e;
-  --hover: #22334a;
-  --accent: #6eaeff;
-  --ring: #78a6df;
+  --window: #151b23;
+  --text: #edf2f9;
+  --muted: #a8b4c4;
+  --separator: #303b4a;
+  --control: #1e2733;
+  --control-border: #4c6079;
+  --hover: #283546;
+  --accent: #80b6ff;
+  --ring: #829bb9;
   --success: #78dfb7;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --window: #111923;
-    --text: #edf4ff;
-    --muted: #a8b8cd;
-    --separator: #2a384b;
-    --control: #1a2534;
-    --control-border: #435d7e;
-    --hover: #22334a;
-    --accent: #6eaeff;
-    --ring: #78a6df;
+    --window: #151b23;
+    --text: #edf2f9;
+    --muted: #a8b4c4;
+    --separator: #303b4a;
+    --control: #1e2733;
+    --control-border: #4c6079;
+    --hover: #283546;
+    --accent: #80b6ff;
+    --ring: #829bb9;
     --success: #78dfb7;
   }
 }
 .app-shell {
-  background: radial-gradient(
-    ellipse at 50% 22%,
-    color-mix(in srgb, var(--accent) 9%, transparent),
-    transparent 62%
-  );
+  background: color-mix(in srgb, var(--window) 94%, transparent);
 }
 .app-header {
-  flex-basis: 72px;
+  flex-basis: 64px;
+  border-bottom: 0;
 }
 .app-header h1 {
-  font-size: 18px;
-  font-weight: 650;
+  font-size: 17px;
+  font-weight: 600;
 }
 .brand-logo {
-  width: 30px;
-  height: 30px;
-}
-.brand-caption {
-  display: block;
-  font-size: 10px;
-  line-height: 16px;
-  font-weight: 400;
-  color: var(--muted);
+  width: 26px;
+  height: 26px;
 }
 .view-heading h1 {
   font-size: 17px;
 }
 .icon-button {
-  border: 1px solid var(--separator);
-  background: color-mix(in srgb, var(--control) 70%, transparent);
-  border-radius: 12px;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
 }
 .main-view {
-  padding: 20px 24px;
+  padding: 24px;
 }
 .connection-content {
-  gap: 18px;
+  gap: 22px;
 }
 .power-button {
   width: 132px;
   height: 132px;
-  background: color-mix(in srgb, currentColor 4%, transparent);
-  box-shadow: 0 0 0 12px color-mix(in srgb, currentColor 3%, transparent);
+  background: transparent;
+  box-shadow: none;
 }
 .power-button:hover:enabled {
-  background: color-mix(in srgb, currentColor 10%, transparent);
+  background: color-mix(in srgb, currentColor 6%, transparent);
 }
 .status-title {
   font-size: 20px;
   line-height: 28px;
-  font-weight: 650;
-  letter-spacing: -0.3px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
 }
 .status-secondary {
   font-size: 12px;
@@ -96,110 +86,93 @@
   max-width: 290px;
   margin-inline: auto;
 }
-.session-strip {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  border: 1px solid var(--separator);
-  background: color-mix(in srgb, var(--control) 80%, transparent);
-  border-radius: 14px;
-}
-.session-cell {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-  padding: 12px;
-  color: var(--muted);
-  border: 0;
-  background: transparent;
-  text-align: left;
-  border-radius: 13px;
-}
-.session-cell + .session-cell {
-  border-left: 1px solid var(--separator);
-}
-.session-cell small {
-  display: block;
-  font-size: 10px;
-  line-height: 16px;
-}
-.session-cell strong {
-  display: block;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 550;
-  line-height: 18px;
-}
-button.session-cell:hover {
-  background: var(--hover);
-}
-.session-time {
-  font-variant-numeric: tabular-nums;
-}
 .connection-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--accent);
+  color: var(--muted);
   font-size: 12px;
   text-decoration: none;
 }
-.connection-link::after {
-  content: '→';
+.connection-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
 }
 .recheck-action {
   display: inline-flex;
   align-items: center;
   gap: 8px;
 }
-.settings-summary {
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--accent) 7%, var(--control));
+.simple-menu {
+  border: 1px solid var(--separator);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--control);
 }
-.menu-group-list {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+.simple-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 56px;
+  padding: 15px 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
 }
-.menu-card {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 9px;
-  padding: 13px;
-  min-height: 113px;
-  border-radius: 14px;
+.simple-menu-row + .simple-menu-row {
+  border-top: 1px solid var(--separator);
 }
-.menu-card .menu-chevron {
-  display: none;
+.simple-menu-row:hover {
+  background: var(--hover);
 }
-.menu-card .setting-label {
+.simple-menu-row > span {
+  flex: 1;
+  font-size: 13px;
+}
+.simple-menu-row > svg {
+  color: var(--muted);
+}
+.simple-menu-row:focus-visible {
+  outline-offset: -3px;
+}
+.session-time {
+  font-variant-numeric: tabular-nums;
+}
+.connection-advanced {
+  margin-top: 16px;
+  border-top: 1px solid var(--separator);
+  padding-top: 12px;
+}
+.connection-advanced summary {
+  cursor: pointer;
+  color: var(--muted);
   font-size: 12px;
-  line-height: 18px;
-  font-weight: 600;
 }
-.menu-card .setting-description {
+.connection-advanced .connection-facts {
+  margin-top: 12px;
+}
+.connection-advanced .setting-description {
+  margin: 12px 0 0;
   font-size: 11px;
-  line-height: 16px;
-}
-.menu-card .menu-icon {
-  width: 28px;
-  height: 28px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  border-radius: 9px;
 }
 .settings-list,
 .connection-card {
-  border-radius: 14px;
+  border-radius: 10px;
 }
 .update-banner {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--separator));
-  background: color-mix(in srgb, var(--accent) 7%, var(--control));
-  border-radius: 14px;
+  border: 1px solid var(--separator);
+  border-radius: 8px;
+  background: transparent;
+  padding: 10px 12px;
+}
+.update-banner strong {
+  font-size: 12px;
+  font-weight: 500;
 }
 .app-footer {
   font-size: 10px;
   padding: 14px 24px;
+  border-top: 0;
 }
 @media (forced-colors: active) {
   :root,
@@ -217,8 +190,5 @@ button.session-cell:hover {
   }
   .app-shell {
     background: Canvas;
-  }
-  .power-button {
-    box-shadow: none;
   }
 }

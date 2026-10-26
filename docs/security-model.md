@@ -1,6 +1,10 @@
-# Security model — v0.3.0
+# Security model — v0.4.0
 
 Warply has additional safeguards, but this is not a claim of complete security or a full independent audit. Source secrecy is not a security control.
+
+## 0.4.0 simpler presentation
+
+The main dashboard fields moved to Connection details, with technical proof behind an explicit disclosure. Verified main text reads Connected only under the existing dual-stack verification condition; service-running alone still never counts. Details now receive the client stale-state flag too, preventing stale cached proof from retaining verified styling there. Blocked/unknown protection and recovery remain visible when needed. Rust tunnel, storage, helper and updater logic were not changed. See [release notes and checks](release-v0.4.0.md).
 
 ## 0.3.0 visible status freshness
 
